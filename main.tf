@@ -40,6 +40,7 @@ resource "null_resource" "npm_build" {
 resource "aws_s3_bucket" "website" {
   bucket = "${random_pet.bucket_name.id}-website-bucket"
 
+  # TODO: Replace deprecated configs
   logging {
     target_bucket = aws_s3_bucket.log_bucket.id
     target_prefix = "website-log/"
@@ -131,6 +132,7 @@ locals {
 resource "aws_s3_bucket" "log_bucket" {
   bucket = "${random_pet.bucket_name.id}-log-bucket"
 
+  # TODO: Replace deprecated configs
   logging {
     target_bucket = "${random_pet.bucket_name.id}-log-bucket"
     target_prefix = "this-bucket-log/"
@@ -210,6 +212,7 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     cloudfront_default_certificate = true
   }
 
+  # TODO: Get this working
   #   logging_config {
   #     include_cookies = false
   #     bucket          = "${aws_s3_bucket.log_bucket.bucket_domain_name}"
