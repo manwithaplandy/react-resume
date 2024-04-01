@@ -88,7 +88,7 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_access" {
                 "aws:SourceArn" = "${aws_cloudfront_distribution.website_distribution.arn}"
             }
         }
-      }
+      },
     ]
   })
 }
@@ -178,8 +178,10 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     custom_origin_config {
       http_port              = 80
       https_port             = 443
-      origin_protocol_policy = "https-only"
+      origin_protocol_policy = "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
+      origin_keepalive_timeout = 5
+
     }
   }
 
@@ -190,18 +192,12 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "S3-${aws_s3_bucket.website.id}"
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
+    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
 
     viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+    # default_ttl            = 3600
+    # max_ttl                = 86400
   }
 
   restrictions {
