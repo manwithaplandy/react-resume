@@ -103,16 +103,14 @@ export const heroData: Hero = {
  */
 export const aboutData: About = {
   profileImageSrc: profilepic,
-  description: `Use this bio section as your way of describing yourself and saying what you do, what technologies you like
-  to use or feel most comfortable with, describing your personality, or whatever else you feel like throwing
-  in.`,
+  description: `I'm a DevOps Engineer with over 5 years of experience in the IT industry, and a passion for technology and AI. My expertise lies in designing, implementing and managing cloud-based systems to ensure high availability and performance. I am proficient in AWS and Azure services and have hands-on experience with Docker, Kubernetes, Terraform, Ansible, and others.`,
   aboutItems: [
-    {label: 'Location', text: 'Victoria, BC', Icon: MapIcon},
+    {label: 'Location', text: 'San Diego, CA', Icon: MapIcon},
     {label: 'Age', text: '29', Icon: CalendarIcon},
-    {label: 'Nationality', text: 'Canadian / Irish', Icon: FlagIcon},
-    {label: 'Interests', text: 'Motorcycles, Muay Thai, Banjos', Icon: SparklesIcon},
-    {label: 'Study', text: 'University of Victoria', Icon: AcademicCapIcon},
-    {label: 'Employment', text: 'Instant Domains, inc.', Icon: BuildingOffice2Icon},
+    {label: 'Nationality', text: 'American', Icon: FlagIcon},
+    {label: 'Interests', text: 'Camping, Motorsports, Golf', Icon: SparklesIcon},
+    {label: 'Study', text: 'University of California, Santa Barbara', Icon: AcademicCapIcon},
+    {label: 'Employment', text: 'General Atomics', Icon: BuildingOffice2Icon},
   ],
 };
 
