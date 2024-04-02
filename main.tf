@@ -20,14 +20,42 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+data "aws_acm_certificate" "amazon_issued" {
+  provider    = aws.us_east_1
+  domain      = "andrewmalvani.com"
+  types       = ["AMAZON_ISSUED"]
+  most_recent = true
+}
+
 resource "random_pet" "bucket_name" {
   length    = 3
   separator = "-"
 }
 
+
+locals {
+  # Define MIME types for common file extensions
+  mime_types = {
+    ".html"        = "text/html"
+    ".css"         = "text/css"
+    ".js"          = "application/javascript"
+    ".json"        = "application/json"
+    ".png"         = "image/png"
+    ".jpg"         = "image/jpeg"
+    ".jpeg"        = "image/jpeg"
+    ".gif"         = "image/gif"
+    ".ico"         = "image/x-icon"
+    ".svg"         = "image/svg+xml"
+    ".txt"         = "text/plain"
+    ".webmanifest" = "application/json"
+    ".webp"        = "image/webp"
+  }
+  build_trigger = sha1(join("", [for f in fileset("${path.module}/src", "**") : filesha1("${path.module}/src/${f}")]))
+}
+
 resource "null_resource" "npm_build" {
   triggers = {
-    build_trigger = sha1(join("", [for f in fileset("${path.module}/src", "**") : filesha1("${path.module}/src/${f}")]))
+    build_trigger = local.build_trigger
   }
 
   provisioner "local-exec" {
@@ -51,17 +79,17 @@ resource "aws_s3_bucket" "website" {
   }
 }
 
-resource "aws_s3_bucket_website_configuration" "website" {
-  bucket = aws_s3_bucket.website.id
+# resource "aws_s3_bucket_website_configuration" "website" {
+#   bucket = aws_s3_bucket.website.id
 
-  index_document {
-    suffix = "index.html"
-  }
+#   index_document {
+#     suffix = "index.html"
+#   }
 
-  error_document {
-    key = "error.html"
-  }
-}
+#   error_document {
+#     key = "error.html"
+#   }
+# }
 
 resource "aws_s3_bucket_policy" "allow_cloudfront_access" {
   bucket = aws_s3_bucket.website.id
@@ -74,58 +102,54 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_access" {
         Effect    = "Allow"
         Principal = { "AWS" : "${aws_cloudfront_origin_access_identity.oai.iam_arn}" }
         Action    = ["s3:GetObject"]
-        Resource  = ["arn:aws:s3:::${aws_s3_bucket.website.bucket}/*"]
+        Resource  = [
+          "arn:aws:s3:::${aws_s3_bucket.website.bucket}",
+          "arn:aws:s3:::${aws_s3_bucket.website.bucket}/*"
+          ]
       },
       {
-        Sid = "AllowCloudFrontServicePrincipalReadOnly",
+        Sid    = "AllowCloudFrontServicePrincipalReadOnly",
         Effect = "Allow",
         Principal = {
-            Service = "cloudfront.amazonaws.com"
+          Service = "cloudfront.amazonaws.com"
         },
-        Action = "s3:GetObject",
-        Resource = "arn:aws:s3:::${aws_s3_bucket.website.bucket}/*",
-        Condition = {
-            StringEquals = {
-                "aws:SourceArn" = "${aws_cloudfront_distribution.website_distribution.arn}"
-            }
-        }
+        Action   = "s3:GetObject",
+        Resource = [
+          "arn:aws:s3:::${aws_s3_bucket.website.bucket}",
+          "arn:aws:s3:::${aws_s3_bucket.website.bucket}/*"
+        ],
+        # Condition = {
+        #   StringEquals = {
+        #     "aws:SourceArn" = "${aws_cloudfront_distribution.website_distribution.arn}"
+        #   }
+        # }
       },
     ]
   })
 }
 
+resource "aws_s3_bucket_cors_configuration" "example" {
+  bucket = aws_s3_bucket.website.id
+
+  cors_rule {
+    allowed_methods = ["GET"]
+    allowed_origins = ["*"]
+  }
+}
 
 # Upload React/Next.js build files to the S3 bucket
 resource "aws_s3_object" "website_files" {
   for_each = fileset("${path.module}/out/", "**")
 
-  bucket       = aws_s3_bucket.website.id
-  key          = each.value
-  source       = "${path.module}/out/${each.value}"
-  # Attempt to map the mime type explicitly using locals.mime_type, but default to null if match can't be made
+  bucket = aws_s3_bucket.website.id
+  key    = each.value
+  source = "${path.module}/out/${each.value}"
+  etag   = filemd5("${path.module}/out/${each.value}")
+  # Attempt to map the mime type explicitly using local.mime_type, but default to null if match can't be made
   content_type = try(lookup(local.mime_types, regex("\\.[^.]+$", each.value), null), null)
 
 
   depends_on = [null_resource.npm_build]
-}
-
-# Define MIME types for common file extensions
-locals {
-  mime_types = {
-    ".html" = "text/html"
-    ".css"  = "text/css"
-    ".js"   = "application/javascript"
-    ".json" = "application/json"
-    ".png"  = "image/png"
-    ".jpg"  = "image/jpeg"
-    ".jpeg" = "image/jpeg"
-    ".gif"  = "image/gif"
-    ".ico"  = "image/x-icon"
-    ".svg"  = "image/svg+xml"
-    ".txt"  = "text/plain"
-    ".webmanifest" = "application/json"
-    ".webp" = "image/webp"
-  }
 }
 
 # S3 bucket for storing access logs
@@ -143,6 +167,14 @@ resource "aws_s3_bucket" "log_bucket" {
   }
 }
 
+resource "aws_s3_bucket_ownership_controls" "example" {
+  bucket = aws_s3_bucket.log_bucket.id
+
+  rule {
+    object_ownership = "ObjectWriter"
+  }
+}
+
 # Bucket policy to allow Cloudwatch Logs to be put into the bucket
 resource "aws_s3_bucket_policy" "allow_cloudfront_logs" {
   bucket = aws_s3_bucket.log_bucket.id
@@ -155,6 +187,17 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_logs" {
         Effect    = "Allow"
         Resource  = "${aws_s3_bucket.log_bucket.arn}/*"
         Principal = { "Service" : "delivery.logs.amazonaws.com" }
+      },
+      {
+        Action    = "s3:PutObject"
+        Effect    = "Allow"
+        Resource  = "${aws_s3_bucket.log_bucket.arn}/*"
+        Principal = { "Service" : "logging.s3.amazonaws.com" }
+        Condition = {
+          "StringEquals": {
+            "aws:SourceAccount": "${data.aws_caller_identity.current.account_id}"
+          }
+        }
       },
       {
         Action    = "s3:GetBucketAcl"
@@ -170,22 +213,32 @@ resource "aws_cloudfront_origin_access_identity" "oai" {
   comment = "OAI for accessing S3 bucket from CloudFront"
 }
 
+resource "aws_cloudfront_origin_access_control" "oac" {
+  name                              = "oac"
+  description                       = "Origin Access Control for resume website"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
 # CloudFront distribution for HTTPS
 resource "aws_cloudfront_distribution" "website_distribution" {
   depends_on = [aws_s3_bucket_policy.allow_cloudfront_logs]
   origin {
-    domain_name = aws_s3_bucket_website_configuration.website.website_endpoint
+    domain_name = aws_s3_bucket.website.bucket_regional_domain_name
     origin_id   = "S3-${aws_s3_bucket.website.id}"
+    origin_access_control_id = aws_cloudfront_origin_access_control.oac.id
 
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-      origin_keepalive_timeout = 5
-
-    }
+    # custom_origin_config {
+    #   http_port                = 80
+    #   https_port               = 443
+    #   origin_protocol_policy   = "http-only"
+    #   origin_ssl_protocols     = ["TLSv1.2"]
+    #   origin_keepalive_timeout = 5
+    # }
   }
+
+  aliases = ["andrewmalvani.com"]
 
   enabled             = true
   default_root_object = "index.html"
@@ -194,12 +247,13 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "S3-${aws_s3_bucket.website.id}"
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id  = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    origin_request_policy_id = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
 
     viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
-    # default_ttl            = 3600
-    # max_ttl                = 86400
+    default_ttl            = 3600
+    max_ttl                = 86400
   }
 
   restrictions {
@@ -209,15 +263,17 @@ resource "aws_cloudfront_distribution" "website_distribution" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn = data.aws_acm_certificate.amazon_issued.arn
+    ssl_support_method  = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   # TODO: Get this working
-  #   logging_config {
-  #     include_cookies = false
-  #     bucket          = "${aws_s3_bucket.log_bucket.bucket_domain_name}"
-  #     prefix          = "cloudfront-logs/"
-  #   }
+    logging_config {
+      include_cookies = false
+      bucket          = "${aws_s3_bucket.log_bucket.bucket_domain_name}"
+      prefix          = "cloudfront-logs/"
+    }
 
   web_acl_id = aws_wafv2_web_acl.website_waf.arn
 }
