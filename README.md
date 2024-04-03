@@ -9,15 +9,6 @@ This project hosts an interactive resume website built with React and hosted on 
 - **Terraform Infrastructure**: Infrastructure as Code (IaC) practices with Terraform to automate the setup, scalability, and maintenance of the AWS resources.
 - **Responsive Design**: Designed to work on desktops, tablets, and mobile devices.
 
-## Prerequisites
-
-To deploy this project, you will need:
-
-- An AWS account
-- Terraform installed on your system
-- Node.js and npm (Node Package Manager)
-- A preferred IDE or text editor
-
 ## AWS Services used
 
 - AWS S3: For hosting static assets.
