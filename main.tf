@@ -64,10 +64,10 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_access" {
         Effect    = "Allow"
         Principal = { "AWS" : "${aws_cloudfront_origin_access_identity.oai.iam_arn}" }
         Action    = ["s3:GetObject"]
-        Resource  = [
+        Resource = [
           "arn:aws:s3:::${aws_s3_bucket.website.bucket}",
           "arn:aws:s3:::${aws_s3_bucket.website.bucket}/*"
-          ]
+        ]
       },
       {
         Sid    = "AllowCloudFrontServicePrincipalReadOnly",
@@ -75,7 +75,7 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_access" {
         Principal = {
           Service = "cloudfront.amazonaws.com"
         },
-        Action   = "s3:GetObject",
+        Action = "s3:GetObject",
         Resource = [
           "arn:aws:s3:::${aws_s3_bucket.website.bucket}",
           "arn:aws:s3:::${aws_s3_bucket.website.bucket}/*"
@@ -160,8 +160,8 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_logs" {
         Resource  = "${aws_s3_bucket.log_bucket.arn}/*"
         Principal = { "Service" : "logging.s3.amazonaws.com" }
         Condition = {
-          "StringEquals": {
-            "aws:SourceAccount": "${data.aws_caller_identity.current.account_id}"
+          "StringEquals" : {
+            "aws:SourceAccount" : "${data.aws_caller_identity.current.account_id}"
           }
         }
       },
@@ -191,8 +191,8 @@ resource "aws_cloudfront_origin_access_control" "oac" {
 resource "aws_cloudfront_distribution" "website_distribution" {
   depends_on = [aws_s3_bucket_policy.allow_cloudfront_logs]
   origin {
-    domain_name = aws_s3_bucket.website.bucket_regional_domain_name
-    origin_id   = "S3-${aws_s3_bucket.website.id}"
+    domain_name              = aws_s3_bucket.website.bucket_regional_domain_name
+    origin_id                = "S3-${aws_s3_bucket.website.id}"
     origin_access_control_id = aws_cloudfront_origin_access_control.oac.id
   }
 
@@ -202,10 +202,10 @@ resource "aws_cloudfront_distribution" "website_distribution" {
   default_root_object = "index.html"
 
   default_cache_behavior {
-    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "S3-${aws_s3_bucket.website.id}"
-    cache_policy_id  = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    target_origin_id         = "S3-${aws_s3_bucket.website.id}"
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
     origin_request_policy_id = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
 
     viewer_protocol_policy = "redirect-to-https"
@@ -221,19 +221,19 @@ resource "aws_cloudfront_distribution" "website_distribution" {
   }
 
   viewer_certificate {
-    acm_certificate_arn = data.aws_acm_certificate.amazon_issued.arn
-    ssl_support_method  = "sni-only"
+    acm_certificate_arn      = data.aws_acm_certificate.amazon_issued.arn
+    ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
 
   # TODO: Get this working
-    logging_config {
-      include_cookies = false
-      bucket          = "${aws_s3_bucket.log_bucket.bucket_domain_name}"
-      prefix          = "cloudfront-logs/"
-    }
+  logging_config {
+    include_cookies = false
+    bucket          = aws_s3_bucket.log_bucket.bucket_domain_name
+    prefix          = "cloudfront-logs/"
+  }
 
-  web_acl_id = aws_wafv2_web_acl.website_waf.arn
+  # web_acl_id = aws_wafv2_web_acl.website_waf.arn
 }
 
 # DynamoDB table for data storage
