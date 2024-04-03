@@ -1,4 +1,5 @@
 import classNames from 'classnames';
+import Image from 'next/image';
 import {FC, memo, UIEventHandler, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
 import {isApple, isMobile} from '../../config';
@@ -8,7 +9,6 @@ import useInterval from '../../hooks/useInterval';
 import useWindow from '../../hooks/useWindow';
 import QuoteIcon from '../Icon/QuoteIcon';
 import Section from '../Layout/Section';
-import Image from 'next/image';
 
 const Testimonials: FC = memo(() => {
   const [activeIndex, setActiveIndex] = useState<number>(0);

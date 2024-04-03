@@ -144,7 +144,7 @@ resource "aws_s3_object" "website_files" {
   bucket = aws_s3_bucket.website.id
   key    = each.value
   source = "${path.module}/out/${each.value}"
-  etag   = filemd5("${path.module}/out/${each.value}")
+  # etag   = filemd5("${path.module}/out/${each.value}")
   # Attempt to map the mime type explicitly using local.mime_type, but default to null if match can't be made
   content_type = try(lookup(local.mime_types, regex("\\.[^.]+$", each.value), null), null)
 
@@ -247,13 +247,13 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "S3-${aws_s3_bucket.website.id}"
-    cache_policy_id  = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id  = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
     origin_request_policy_id = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
 
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+    # min_ttl                = 0
+    # default_ttl            = 3600
+    # max_ttl                = 86400
   }
 
   restrictions {

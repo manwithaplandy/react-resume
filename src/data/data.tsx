@@ -11,6 +11,8 @@ import {
 import GithubIcon from '../components/Icon/GithubIcon';
 // import InstagramIcon from '../components/Icon/InstagramIcon';
 import LinkedInIcon from '../components/Icon/LinkedInIcon';
+import darwin from '../images/darwin.jpg'
+import downeyjr from '../images/downeyjr.jpg'
 // import StackOverflowIcon from '../components/Icon/StackOverflowIcon';
 // import TwitterIcon from '../components/Icon/TwitterIcon';
 import heroImage from '../images/header-background.webp';
@@ -19,6 +21,7 @@ import porfolioImage2 from '../images/portfolio/portfolio-2.jpg';
 import porfolioImage3 from '../images/portfolio/portfolio-3.jpg';
 import porfolioImage4 from '../images/portfolio/portfolio-4.jpg';
 import profilepic from '../images/profilepic.jpg';
+import stevejobs from '../images/stevejobs.jpg'
 import testimonialImage from '../images/testimonial.webp';
 import {
   About,
@@ -229,24 +232,40 @@ export const education: TimelineItem[] = [
 
 export const experience: TimelineItem[] = [
   {
-    date: 'March 2010 - Present',
-    location: 'Awesome Development Company',
-    title: 'Senior UX Engineer',
+    date: 'February 2023 - Present',
+    location: 'General Atomics',
+    title: 'Systems Administrator',
     content: (
       <p>
-        Describe work, special projects, notable achievements, what technologies you have been working with, and
-        anything else that would be useful for an employer to know.
+        Working as a Systems Administrator, I am tasked with improving and modernizing the company's IT infrastructure. 
+        I brought concepts of DevOps and Agile development to automate, innovate, and quickly generate value for the over 15000 end users.
+        Additionally, I have spearheaded the team to implement generative AI to enable its use throughout the enterprise. 
+        I have also personally developed a number of generative AI-powered applications to improve access to information for technicians and executives.
       </p>
     ),
   },
   {
-    date: 'March 2007 - February 2010',
-    location: 'Garage Startup Studio',
-    title: 'Junior bug fixer',
+    date: 'October 2021 - February 2023',
+    location: 'Tillster, Inc.',
+    title: 'IT Strategic Analyst',
     content: (
       <p>
-        Describe work, special projects, notable achievements, what technologies you have been working with, and
-        anything else that would be useful for an employer to know.
+        As an IT strategic analyst, it was my job to be tier 1 helpdesk, systems administrator, and automation engineer all at once. 
+        I had to anticipate the needs of the end user, respond to them, and then work to implement solutions that met their needs. 
+        I helped in the development of new internal tools using Python, js/jquery, Mulesoft, and others which significantly improved our efficiency. 
+      </p>
+    ),
+  },
+  {
+    date: 'April 2018 - October 2021',
+    location: 'Reynolds & Reynolds',
+    title: 'Compliance & Marketing Consultant',
+    content: (
+      <p>
+        At Reynolds & Reynolds, our clients were car dealerships across the country. 
+        I was tasked with auditing their compliance with all of the relevant authorities, including local, state, federal, and corporate.
+        Where there were inconsistencies or compliance failures, it was my job to resolve them quickly, and advise the client on preventing any future violations. 
+        I also helped with marketing strategy and content creation.
       </p>
     ),
   },
@@ -259,19 +278,19 @@ export const testimonial: TestimonialSection = {
   imageSrc: testimonialImage,
   testimonials: [
     {
-      name: 'John Doe',
-      text: 'Use this as an opportunity to promote what it is like to work with you. High value testimonials include ones from current or past co-workers, managers, or from happy clients.',
-      image: 'https://cloudflare-ipfs.com/ipfs/Qmd3W5DuhgHirLHGVixi6V76LhCkZUz6pnFt5AJBiyvHye/avatar/169.jpg',
+      name: 'Steve Jobs',
+      text: "This guy is an absolute revolutionary. The smartest guy I've ever worked with. He really understands what it means to think different",
+      image: stevejobs,
     },
     {
-      name: 'Jane Doe',
-      text: 'Here you should write some nice things that someone has said about you. Encourage them to be specific and include important details (notes about a project you were on together, impressive quality produced, etc).',
-      image: 'https://cloudflare-ipfs.com/ipfs/Qmd3W5DuhgHirLHGVixi6V76LhCkZUz6pnFt5AJBiyvHye/avatar/14.jpg',
+      name: 'Charles Darwin',
+      text: 'Having ventured to the far reaches of the Galápagos, I thought I had seen the pinnacle of evolution. Yet, upon my return, I encountered a marvel beyond natural selection: the technological prowess of Andrew. His ability to adapt and innovate in the digital ecosystem rivals that of the finches of my studies. Truly, Andrew is the missing link between chaos and digital enlightenment. His services come highly recommended for any species striving to evolve in the digital age.',
+      image: darwin,
     },
     {
-      name: 'Someone else',
-      text: 'Add several of these, and keep them as fresh as possible, but be sure to focus on quality testimonials with strong highlights of your skills/work ethic.',
-      image: 'https://cloudflare-ipfs.com/ipfs/Qmd3W5DuhgHirLHGVixi6V76LhCkZUz6pnFt5AJBiyvHye/avatar/69.jpg',
+      name: 'Robert Downey Jr.',
+      text: "How did you get in here? What is this?! Where is my security? And why are you wearing my hat?",
+      image: downeyjr,
     },
   ],
 };
