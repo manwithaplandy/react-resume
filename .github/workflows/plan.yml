@@ -7,14 +7,39 @@ on:
 
 jobs:
   terraform:
-    name: 'Terraform'
+    name: 'Terraform plan and PR'
     runs-on: ubuntu-latest
+    environment: "AWS General"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v2
+        with:
+          node-version: '22'
+    
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build
+        run: npm run build
+
+      - name: Upload web assets
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-artifacts
+          path: out
 
       - name: Terraform fmt
         run: terraform fmt -check
@@ -23,19 +48,16 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -out=plan.out
+        run: terraform plan -out=plan.tfplan
       
       - name: Upload Plan
         uses: actions/upload-artifact@v2
         with:
           name: plan
-          path: plan.out
+          path: plan.tfplan
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Terraform plan"
-          title: "Terraform plan"
-          body: "Please review the plan."
-          branch: "terraform-plan-${{ github.run_id }}"
+        run: |
+          gh pr create --title "Merge $GITHUB_SHA into main" --body "$(terraform show plan.tfplan)" --base main --head $GITHUB_REF_NAME
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
