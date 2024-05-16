@@ -55,14 +55,9 @@ jobs:
         with:
           name: plan
           path: plan.tfplan
-      
-      - name: Record Plan
-        run: |
-          terraform show plan.tfplan > tfplan.txt
-          echo "TF_PLAN=$(<tfplan.txt)" >> $GITHUB_ENV
 
       - name: Create Pull Request
         run: |
-          gh pr create --title "Merge $GITHUB_SHA into main" --body "Created by Github Action" --base main --head $GITHUB_SHA
+          gh pr create --title "Merge $GITHUB_SHA into main" --body "$(terraform show plan.tfplan)" --base main --head $GITHUB_SHA
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
