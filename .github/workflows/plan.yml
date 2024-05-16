@@ -57,7 +57,9 @@ jobs:
           path: plan.tfplan
       
       - name: Record Plan
-        run: echo "TF_PLAN=$(terraform show plan.tfplan)" >> $GITHUB_ENV
+        run: |
+          terraform show plan.tfplan > tfplan.txt
+          echo "TF_PLAN=$(<tfplan.txt)" >> $GITHUB_ENV
 
       - name: Create Pull Request
         run: |
