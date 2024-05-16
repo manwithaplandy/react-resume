@@ -1,0 +1,41 @@
+name: Terraform Plan and PR
+
+on:
+  push:
+    branches-ignore:
+      - 'main'
+
+jobs:
+  terraform:
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform fmt
+        run: terraform fmt -check
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan -out=plan.out
+      
+      - name: Upload Plan
+        uses: actions/upload-artifact@v2
+        with:
+          name: plan
+          path: plan.out
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Terraform plan"
+          title: "Terraform plan"
+          body: "Please review the plan."
+          branch: "terraform-plan-${{ github.run_id }}"
