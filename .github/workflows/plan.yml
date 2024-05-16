@@ -58,6 +58,6 @@ jobs:
 
       - name: Create Pull Request
         run: |
-          gh pr create --title "Merge $GITHUB_SHA into main" --body "$(terraform show plan.tfplan)" --base main --head $GITHUB_SHA
+          gh pr create --title "Merge $GITHUB_SHA into main" --body "$(terraform show plan.tfplan)" --base main --head $GITHUB_REF_NAME
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
