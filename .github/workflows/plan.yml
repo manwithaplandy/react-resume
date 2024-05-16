@@ -48,13 +48,16 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -out=plan.out
+        run: terraform plan -out=plan.tfplan
       
       - name: Upload Plan
         uses: actions/upload-artifact@v2
         with:
           name: plan
-          path: plan.out
+          path: plan.tfplan
+      
+      - name: Record Plan
+        run: echo "TF_PLAN=$(terraform show plan.tfplan)" >> $GITHUB_ENV
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
@@ -62,5 +65,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "Terraform plan"
           title: "Terraform plan"
-          body: "Please review the plan."
+          body: "${{ env.TF_PLAN }}"
           branch: "terraform-plan-${{ github.run_id }}"
