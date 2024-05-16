@@ -7,18 +7,18 @@ on:
 
 jobs:
   terraform:
-    name: 'Terraform'
+    name: 'Terraform Apply'
     runs-on: ubuntu-latest
     environment: "AWS General"
     steps:
         - name: Checkout
-          uses: actions/checkout@v2
+          uses: actions/checkout@v4
 
         - name: Setup Terraform
-          uses: hashicorp/setup-terraform@v1
+          uses: hashicorp/setup-terraform@v3
 
         - name: Configure AWS credentials
-          uses: aws-actions/configure-aws-credentials@v1
+          uses: aws-actions/configure-aws-credentials@v4
           with:
             aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
             aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -28,9 +28,15 @@ jobs:
           run: terraform init
 
         - name: Download Plan
-          uses: actions/download-artifact@v2
+          uses: actions/download-artifact@v4
           with:
             name: plan
+    
+        - name: Download build artifacts
+          uses: actions/download-artifact@v4
+          with:
+            name: out
+            path: out
 
         - name: Terraform Apply
           run: terraform apply -auto-approve
