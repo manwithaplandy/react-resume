@@ -58,7 +58,9 @@ jobs:
 
       - name: Save Plan Output
         id: save_plan_output
-        run: echo "{plan_output}={$(terraform show -no-color plan.tfplan)}" >> "$GITHUB_ENV"
+        run: |
+          plan_output=$(terraform show -no-color plan.tfplan)
+          echo $plan_output >> "$GITHUB_ENV"
 
   wait-for-approval:
     name: Wait for Approval
