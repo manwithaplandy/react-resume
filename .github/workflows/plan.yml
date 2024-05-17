@@ -62,32 +62,33 @@ jobs:
           plan_output=$(terraform show -no-color plan.tfplan)
           echo $plan_output >> "$GITHUB_ENV"
 
-  wait-for-approval:
-    name: Wait for Approval
-    needs: terraform-plan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get Plan Output
-        id: get_plan_output
-        run: echo "${{ env.plan_output }}" > plan_output.txt
+  # wait-for-approval:
+  #   name: Wait for Approval
+  #   needs: terraform-plan
+  #   runs-on: ubuntu-latest
+  #   environment: "AWS General"
+  #   steps:
+  #     - name: Get Plan Output
+  #       id: get_plan_output
+  #       run: echo "${{ env.plan_output }}" > plan_output.txt
 
-      - name: Approval Required
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const { context, github } = require('@actions/github');
-            const issueNumber = context.issue.number;
-            await github.issues.createComment({
-              ...context.repo,
-              issue_number: issueNumber,
-              body: 'Please review the Terraform plan and approve the deployment.'
-            });
+  #     - name: Approval Required
+  #       uses: actions/github-script@v6
+  #       with:
+  #         script: |
+  #           const { context, github } = require('@actions/github');
+  #           const issueNumber = context.issue.number;
+  #           await github.issues.createComment({
+  #             ...context.repo,
+  #             issue_number: issueNumber,
+  #             body: 'Please review the Terraform plan and approve the deployment.'
+  #           });
 
   terraform-apply:
     name: 'Terraform Apply'
-    needs: wait-for-approval
+    needs: terraform-plan
     runs-on: ubuntu-latest
-    environment: "AWS General"
+    environment: "prod"
     steps:
         - name: Checkout
           uses: actions/checkout@v4
