@@ -25,7 +25,7 @@ jobs:
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
     
@@ -62,28 +62,6 @@ jobs:
           plan_output=$(terraform show -no-color plan.tfplan)
           echo $plan_output >> "$GITHUB_ENV"
 
-  # wait-for-approval:
-  #   name: Wait for Approval
-  #   needs: terraform-plan
-  #   runs-on: ubuntu-latest
-  #   environment: "AWS General"
-  #   steps:
-  #     - name: Get Plan Output
-  #       id: get_plan_output
-  #       run: echo "${{ env.plan_output }}" > plan_output.txt
-
-  #     - name: Approval Required
-  #       uses: actions/github-script@v6
-  #       with:
-  #         script: |
-  #           const { context, github } = require('@actions/github');
-  #           const issueNumber = context.issue.number;
-  #           await github.issues.createComment({
-  #             ...context.repo,
-  #             issue_number: issueNumber,
-  #             body: 'Please review the Terraform plan and approve the deployment.'
-  #           });
-
   terraform-apply:
     name: 'Terraform Apply'
     needs: terraform-plan
@@ -119,3 +97,21 @@ jobs:
 
         - name: Terraform Apply
           run: terraform apply -auto-approve
+
+
+  cloudfront-invalidation:
+      name: Invalidate CloudFront Distribution
+      needs: terraform-apply
+      runs-on: ubuntu-latest
+      environment: "AWS General"
+      steps:        
+        - name: Configure AWS Credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+  
+        - name: Invalidate CloudFront cache
+          run: |
+            aws cloudfront create-invalidation --distribution-id $CF_DISTRIBUTION_ID --paths "/*"
