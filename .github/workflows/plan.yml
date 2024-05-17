@@ -6,8 +6,8 @@ on:
       - 'main'
 
 jobs:
-  terraform:
-    name: 'Terraform plan and PR'
+  terraform-plan:
+    name: 'Terraform plan'
     runs-on: ubuntu-latest
     environment: "AWS General"
     steps:
@@ -25,7 +25,7 @@ jobs:
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: '22'
     
@@ -56,8 +56,62 @@ jobs:
           name: plan
           path: plan.tfplan
 
-      - name: Create Pull Request
-        run: |
-          gh pr create --title "Merge $GITHUB_SHA into main" --body "$(terraform show plan.tfplan)" --base main --head $GITHUB_REF_NAME
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Save Plan Output
+        id: save_plan_output
+        run: echo "plan_output=$(terraform show -no-color plan.tfplan)" >> $GITHUB_ENV
+
+  wait-for-approval:
+    name: Wait for Approval
+    needs: terraform-plan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Plan Output
+        id: get_plan_output
+        run: echo "${{ env.plan_output }}" > plan_output.txt
+
+      - name: Approval Required
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { context, github } = require('@actions/github');
+            const issueNumber = context.issue.number;
+            await github.issues.createComment({
+              ...context.repo,
+              issue_number: issueNumber,
+              body: 'Please review the Terraform plan and approve the deployment.'
+            });
+
+  terraform-apply:
+    name: 'Terraform Apply'
+    runs-on: ubuntu-latest
+    environment: "AWS General"
+    steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Setup Terraform
+          uses: hashicorp/setup-terraform@v3
+
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+        - name: Terraform Init
+          run: terraform init
+
+        - name: Download Plan
+          uses: actions/download-artifact@v4
+          with:
+            name: plan
+    
+        - name: Download build artifacts
+          uses: actions/download-artifact@v4
+          with:
+            name: out
+            path: out
+
+        - name: Terraform Apply
+          run: terraform apply -auto-approve
