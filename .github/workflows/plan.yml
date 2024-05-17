@@ -83,6 +83,7 @@ jobs:
 
   terraform-apply:
     name: 'Terraform Apply'
+    needs: wait-for-approval
     runs-on: ubuntu-latest
     environment: "AWS General"
     steps:
