@@ -2,7 +2,7 @@ name: Plan and Deploy
 
 on:
   push:
-    branches-ignore:
+    branches:
       - 'main'
 
 jobs:
