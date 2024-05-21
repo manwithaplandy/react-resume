@@ -16,10 +16,10 @@ import downeyjr from '../images/downeyjr.jpg'
 // import StackOverflowIcon from '../components/Icon/StackOverflowIcon';
 // import TwitterIcon from '../components/Icon/TwitterIcon';
 import heroImage from '../images/header-background.webp';
-import porfolioImage1 from '../images/portfolio/portfolio-1.jpg';
-import porfolioImage2 from '../images/portfolio/portfolio-2.jpg';
-import porfolioImage3 from '../images/portfolio/portfolio-3.jpg';
-import porfolioImage4 from '../images/portfolio/portfolio-4.jpg';
+import porfolioImage1 from '../images/portfolio/GitHub__headpic.jpg';
+import porfolioImage2 from '../images/portfolio/website-diagram.png';
+import porfolioImage3 from '../images/portfolio/portfolio-10.jpg';
+import porfolioImage4 from '../images/portfolio/portfolio-11.jpg';
 import profilepic from '../images/profilepic.jpg';
 import stevejobs from '../images/stevejobs.jpg'
 import testimonialImage from '../images/testimonial.webp';
@@ -41,7 +41,7 @@ import {
  */
 export const homePageMeta: HomepageMeta = {
   title: "Andrew's Resume",
-  description: "Resume website built with React, and hosted on AWS.",
+  description: "Resume website built with Next.js, and hosted on AWS.",
 };
 
 /**
@@ -193,21 +193,21 @@ export const skills: SkillGroup[] = [
  */
 export const portfolioItems: PortfolioItem[] = [
   {
-    title: 'Project title 1',
-    description: 'Give a short description of your project here.',
-    url: 'https://reactresume.com',
+    title: 'Github',
+    description: 'View my code, including this website, on Github.',
+    url: 'https://github.com/manwithaplandy/react-resume',
     image: porfolioImage1,
   },
   {
-    title: 'Project title 2',
-    description: 'Give a short description of your project here.',
-    url: 'https://reactresume.com',
+    title: 'andrewmalvani.com',
+    description: 'This website, hosted on AWS, built with Next.js.',
+    url: 'https://drive.google.com/file/d/1L__W0DVnXuihCFFZveYC-0zdts5VnorR/view?usp=sharing',
     image: porfolioImage2,
   },
   {
-    title: 'Project title 3',
-    description: 'Give a short description of your project here.',
-    url: 'https://reactresume.com',
+    title: 'thiswebsitehatesyou.com',
+    description: 'Click for a fun surprise.',
+    url: 'https://thiswebsitehatesyou.com',
     image: porfolioImage3,
   },
   {
