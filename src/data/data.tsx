@@ -17,9 +17,9 @@ import downeyjr from '../images/downeyjr.jpg'
 // import TwitterIcon from '../components/Icon/TwitterIcon';
 import heroImage from '../images/header-background.webp';
 import porfolioImage1 from '../images/portfolio/GitHub__headpic.jpg';
-import porfolioImage2 from '../images/portfolio/website-diagram.png';
 import porfolioImage3 from '../images/portfolio/portfolio-10.jpg';
 import porfolioImage4 from '../images/portfolio/portfolio-11.jpg';
+import porfolioImage2 from '../images/portfolio/website-diagram.png';
 import profilepic from '../images/profilepic.jpg';
 import stevejobs from '../images/stevejobs.jpg'
 import testimonialImage from '../images/testimonial.webp';
