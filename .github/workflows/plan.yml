@@ -47,6 +47,9 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Terraform refresh
+        run: terraform refresh
+
       - name: Terraform Plan
         run: terraform plan -out=plan.tfplan
       
@@ -89,7 +92,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-
       - name: Terraform Init
         run: terraform init
 
@@ -103,6 +105,9 @@ jobs:
         with:
           name: out
           path: out
+
+      - name: Terraform Refresh
+        run: terraform refresh
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
