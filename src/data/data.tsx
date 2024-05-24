@@ -2,7 +2,7 @@ import {
   AcademicCapIcon,
   ArrowDownTrayIcon,
   BuildingOffice2Icon,
-  CalendarIcon,
+  // CalendarIcon,
   FlagIcon,
   MapIcon,
   SparklesIcon,
@@ -102,7 +102,7 @@ export const aboutData: About = {
   description: `I'm a DevOps Engineer with over 5 years of experience in the IT industry, and a passion for technology and AI. My expertise lies in designing, implementing and managing cloud-based systems to ensure high availability and performance. I am proficient in AWS and Azure services and have hands-on experience with Docker, Kubernetes, Terraform, Ansible, and others.`,
   aboutItems: [
     {label: 'Location', text: 'San Diego, CA', Icon: MapIcon},
-    {label: 'Age', text: '29', Icon: CalendarIcon},
+    // {label: 'Age', text: '29', Icon: CalendarIcon},
     {label: 'Nationality', text: 'American', Icon: FlagIcon},
     {label: 'Interests', text: 'Camping, Motorsports, Golf', Icon: SparklesIcon},
     {label: 'Study', text: 'University of California, Santa Barbara', Icon: AcademicCapIcon},
@@ -205,15 +205,15 @@ export const portfolioItems: PortfolioItem[] = [
     image: porfolioImage2,
   },
   {
-    title: 'thiswebsitehatesyou.com',
+    title: 'A funny domain I registered',
     description: 'Click for a fun surprise.',
     url: 'https://thiswebsitehatesyou.com',
     image: porfolioImage3,
   },
   {
-    title: 'Project title 4',
-    description: 'Give a short description of your project here.',
-    url: 'https://reactresume.com',
+    title: 'Project yet to be completed',
+    description: 'I always have something in the works. Check back soon!',
+    url: 'https://andrewmalvani.com',
     image: porfolioImage4,
   }
 ];
