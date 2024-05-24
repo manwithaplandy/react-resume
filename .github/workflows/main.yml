@@ -116,17 +116,6 @@ jobs:
           name: sns_publish_lambda
           path: sns_publish_lambda
 
-      - name: Debug step
-        run: |
-          pwd
-          ls
-          echo "===================="
-          ls ..
-          echo "===================="
-          ls terraform
-          echo "===================="
-          ls terraform/plan
-
       - name: Terraform Apply
         run: terraform -chdir=terraform apply "plan/plan.tfplan"
 
