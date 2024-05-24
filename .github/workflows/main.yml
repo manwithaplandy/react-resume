@@ -96,7 +96,7 @@ jobs:
         run: npm ci
 
       - name: Terraform Init
-        run: terraform -chdir=terraform terraform init
+        run: terraform -chdir=terraform init
 
       - name: Download Plan
         uses: actions/download-artifact@v4
@@ -116,10 +116,10 @@ jobs:
           path: sns_publish_lambda
 
       - name: Terraform Refresh
-        run: terraform -chdir=terraform terraform refresh
+        run: terraform -chdir=terraform refresh
 
       - name: Terraform Apply
-        run: terraform -chdir=terraform terraform apply -auto-approve
+        run: terraform -chdir=terraform apply -auto-approve
 
 
   cloudfront-invalidation:
