@@ -126,7 +126,7 @@ jobs:
           echo "===================="
           ls terraform
           echo "===================="
-          file terraform/plan.tfplan
+          ls terraform/plan.tfplan
 
       - name: Terraform Apply
         run: terraform -chdir=terraform apply "plan.tfplan"
