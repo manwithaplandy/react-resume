@@ -119,8 +119,14 @@ jobs:
       - name: Terraform Refresh
         run: terraform -chdir=terraform refresh
 
+      - name: Debug step
+        run: |
+          pwd
+          ls
+          ls ..
+
       - name: Terraform Apply
-        run: terraform apply "plan.tfplan"
+        run: terraform -chdir=terraform apply "plan.tfplan"
 
 
   cloudfront-invalidation:
