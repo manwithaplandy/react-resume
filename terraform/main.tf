@@ -22,7 +22,7 @@ locals {
   }
   # build_trigger = sha1(join("", [for f in fileset("${path.module}/../src", "**") : filesha1("${path.module}/../src/${f}")]))
   build_trigger = sha1("${path.module}/../src")
-  file_paths = { for f in fileset("${path.module}/../../out/", "**") : f => f }
+  file_paths    = { for f in fileset("${path.module}/../../out/", "**") : f => f }
 
 }
 

@@ -139,7 +139,7 @@ jobs:
 
   cloudfront-invalidation:
       name: Invalidate CloudFront Distribution
-      needs: terraform-apply
+      needs: update-s3-contents
       runs-on: ubuntu-latest
       environment: "AWS General"
       steps:        
