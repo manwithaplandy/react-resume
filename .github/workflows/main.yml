@@ -102,7 +102,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: plan
-          path: terraform/plan.tfplan
+          path: terraform/plan
   
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -129,7 +129,7 @@ jobs:
           ls terraform/plan.tfplan
 
       - name: Terraform Apply
-        run: terraform -chdir=terraform apply "plan.tfplan"
+        run: terraform -chdir=terraform apply "plan/plan.tfplan"
 
 
   cloudfront-invalidation:
