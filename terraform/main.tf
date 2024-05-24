@@ -102,7 +102,7 @@ resource "aws_s3_object" "website_files" {
   content_type = each.value != null ? try(lookup(local.mime_types, regex("\\.[^.]+$", each.value), null), null) : null
 
 
-  depends_on = [null_resource.npm_build]
+  # depends_on = [null_resource.npm_build]
 }
 
 # S3 bucket for storing access logs
