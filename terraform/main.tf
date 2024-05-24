@@ -96,7 +96,7 @@ resource "aws_s3_object" "website_files" {
 
   bucket = aws_s3_bucket.website.id
   key    = each.key
-  source = each.value != null ? "${path.module}/out/${each.value}" : null
+  source = each.value != null ? "${path.module}/../out/${each.value}" : null
   # etag   = filemd5("${path.module}/out/${each.value}")
   # Attempt to map the mime type explicitly using local.mime_type, but default to null if match can't be made
   content_type = each.value != null ? try(lookup(local.mime_types, regex("\\.[^.]+$", each.value), null), null) : null
