@@ -21,7 +21,7 @@ locals {
     ".webp"        = "image/webp"
   }
   # build_trigger = sha1(join("", [for f in fileset("${path.module}/../src", "**") : filesha1("${path.module}/../src/${f}")]))
-  file_paths = { for f in fileset("${path.module}/../out/", "**") : f => f }
+  file_paths = { for f in fileset("${path.module}/../../out/", "**") : f => f }
 
 }
 
@@ -96,7 +96,7 @@ resource "aws_s3_object" "website_files" {
 
   bucket = aws_s3_bucket.website.id
   key    = each.key
-  source = each.value != null ? "${path.module}/../out/${each.value}" : null
+  source = each.value != null ? "${path.module}/../../out/${each.value}" : null
   # etag   = filemd5("${path.module}/out/${each.value}")
   # Attempt to map the mime type explicitly using local.mime_type, but default to null if match can't be made
   content_type = each.value != null ? try(lookup(local.mime_types, regex("\\.[^.]+$", each.value), null), null) : null
