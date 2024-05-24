@@ -21,6 +21,7 @@ locals {
     ".webp"        = "image/webp"
   }
   # build_trigger = sha1(join("", [for f in fileset("${path.module}/../src", "**") : filesha1("${path.module}/../src/${f}")]))
+  build_trigger = sha1("${path.module}/../src")
   file_paths = { for f in fileset("${path.module}/../../out/", "**") : f => f }
 
 }
@@ -90,20 +91,20 @@ resource "aws_s3_bucket_cors_configuration" "example" {
   }
 }
 
-# Upload React/Next.js build files to the S3 bucket
-resource "aws_s3_object" "website_files" {
-  for_each = local.file_paths
+# # Upload React/Next.js build files to the S3 bucket
+# resource "aws_s3_object" "website_files" {
+#   for_each = local.file_paths
 
-  bucket = aws_s3_bucket.website.id
-  key    = each.key
-  source = each.value != null ? "${path.module}/../../out/${each.value}" : null
-  # etag   = filemd5("${path.module}/out/${each.value}")
-  # Attempt to map the mime type explicitly using local.mime_type, but default to null if match can't be made
-  content_type = each.value != null ? try(lookup(local.mime_types, regex("\\.[^.]+$", each.value), null), null) : null
+#   bucket = aws_s3_bucket.website.id
+#   key    = each.key
+#   source = each.value != null ? "${path.module}/../../out/${each.value}" : null
+#   etag   = local.build_trigger
+#   # Attempt to map the mime type explicitly using local.mime_type, but default to null if match can't be made
+#   content_type = each.value != null ? try(lookup(local.mime_types, regex("\\.[^.]+$", each.value), null), null) : null
 
 
-  # depends_on = [null_resource.npm_build]
-}
+#   # depends_on = [null_resource.npm_build]
+# }
 
 # S3 bucket for storing access logs
 resource "aws_s3_bucket" "log_bucket" {

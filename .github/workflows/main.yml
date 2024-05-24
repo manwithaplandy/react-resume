@@ -103,12 +103,6 @@ jobs:
         with:
           name: plan
           path: terraform/plan
-  
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: out
-          path: ../out
       
       - name: Download sns publish lambda
         uses: actions/download-artifact@v4
@@ -119,6 +113,29 @@ jobs:
       - name: Terraform Apply
         run: terraform -chdir=terraform apply "plan/plan.tfplan"
 
+  update-s3-contents:
+      name: Update S3 Contents
+      needs: terraform-apply
+      runs-on: ubuntu-latest
+      environment: "AWS General"
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+        - name: Configure AWS Credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+        - name: Download build artifacts
+          uses: actions/download-artifact@v4
+          with:
+            name: out
+            path: out
+        - name: Sync S3 bucket
+          run: aws s3 sync out/ s3://$S3_BUCKET_NAME --delete
+          env:
+            S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
 
   cloudfront-invalidation:
       name: Invalidate CloudFront Distribution
