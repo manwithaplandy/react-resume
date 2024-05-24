@@ -41,8 +41,16 @@ jobs:
           name: out
           path: out
 
+      - name: Upload sns publish lambda
+        uses: actions/upload-artifact@v4
+        with:
+          name: sns_publish_lambda
+          path: sns_publish_lambda
+
       - name: Terraform fmt
-        run: terraform fmt -check
+        run: |
+          cd terraform
+          terraform fmt -check
 
       - name: Terraform Init
         run: terraform init
@@ -93,7 +101,9 @@ jobs:
         run: npm ci
 
       - name: Terraform Init
-        run: terraform init
+        run: |
+          cd terraform
+          terraform init
 
       - name: Download Plan
         uses: actions/download-artifact@v4
@@ -105,6 +115,12 @@ jobs:
         with:
           name: out
           path: out
+      
+      - name: Download sns publish lambda
+        uses: actions/download-artifact@v4
+        with:
+          name: sns_publish_lambda
+          path: sns_publish_lambda
 
       - name: Terraform Refresh
         run: terraform refresh
