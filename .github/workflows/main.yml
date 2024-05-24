@@ -119,7 +119,7 @@ jobs:
         run: terraform -chdir=terraform refresh
 
       - name: Terraform Apply
-        run: terraform -chdir=terraform apply -auto-approve "plan.tfplan"
+        run: terraform apply "plan.tfplan"
 
 
   cloudfront-invalidation:
