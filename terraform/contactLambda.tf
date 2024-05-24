@@ -24,7 +24,7 @@ resource "aws_lambda_function" "form_submission" {
 }
 
 data "archive_file" "sns_publish_lambda_function" {
-  type = "zip"
+  type        = "zip"
   source_file = "../sns_publish_lambda/lambda_function.py"
   output_path = "lambda_function.zip"
 }
