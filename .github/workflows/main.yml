@@ -123,7 +123,8 @@ jobs:
         run: |
           pwd
           ls
-          ls ..
+          echo "===================="
+          ls terraform
 
       - name: Terraform Apply
         run: terraform -chdir=terraform apply "plan.tfplan"
