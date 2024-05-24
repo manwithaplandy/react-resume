@@ -20,20 +20,9 @@ locals {
     ".webmanifest" = "application/json"
     ".webp"        = "image/webp"
   }
-  build_trigger = sha1(join("", [for f in fileset("${path.module}/../src", "**") : filesha1("${path.module}/../src/${f}")]))
+  # build_trigger = sha1(join("", [for f in fileset("${path.module}/../src", "**") : filesha1("${path.module}/../src/${f}")]))
   file_paths    = { for f in fileset("${path.module}/../out/", "**") : f => f }
 
-}
-
-resource "null_resource" "npm_build" {
-  triggers = {
-    build_trigger = local.build_trigger
-  }
-
-  provisioner "local-exec" {
-    command     = "npm run build"
-    working_dir = "./"
-  }
 }
 
 # S3 bucket for static website hosting
