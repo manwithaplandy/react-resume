@@ -53,17 +53,16 @@ jobs:
       - name: Terraform fmt
         run: |
           cd terraform
-          pwd
-          terraform fmt -check
+          terraform fmt -check -chdir=terraform
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -chdir=terraform
 
       - name: Terraform refresh
-        run: terraform refresh
+        run: terraform refresh -chdir=terraform
 
       - name: Terraform Plan
-        run: terraform plan -out=plan.tfplan
+        run: terraform plan -out=plan.tfplan -chdir=terraform
       
       - name: Upload Plan
         uses: actions/upload-artifact@v4
