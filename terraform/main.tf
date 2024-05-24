@@ -20,7 +20,7 @@ locals {
     ".webmanifest" = "application/json"
     ".webp"        = "image/webp"
   }
-  build_trigger = sha1(join("", [for f in fileset("${path.module}/src", "**") : filesha1("${path.module}/src/${f}")]))
+  build_trigger = sha1(join("", [for f in fileset("${path.module}/../src", "**") : filesha1("${path.module}/src/${f}")]))
   file_paths    = { for f in fileset("${path.module}/out/", "**") : f => f }
 
 }
