@@ -51,9 +51,7 @@ jobs:
           path: sns_publish_lambda
 
       - name: Terraform fmt
-        run: |
-          cd terraform
-          terraform -chdir=terraform fmt -check
+        run: terraform -chdir=terraform fmt -check
 
       - name: Terraform Init
         run: terraform -chdir=terraform init
