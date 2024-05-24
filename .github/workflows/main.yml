@@ -116,9 +116,6 @@ jobs:
           name: sns_publish_lambda
           path: sns_publish_lambda
 
-      - name: Terraform Refresh
-        run: terraform -chdir=terraform refresh
-
       - name: Debug step
         run: |
           pwd
