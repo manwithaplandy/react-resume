@@ -124,6 +124,8 @@ jobs:
           pwd
           ls
           echo "===================="
+          ls ..
+          echo "===================="
           ls terraform
           echo "===================="
           ls terraform/plan
