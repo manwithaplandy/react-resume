@@ -68,12 +68,6 @@ jobs:
           name: plan
           path: plan.tfplan
 
-      - name: Save Plan Output
-        id: save_plan_output
-        run: |
-          plan_output=$(terraform show -no-color plan.tfplan)
-          echo $plan_output >> "$GITHUB_ENV"
-
   terraform-apply:
     name: 'Terraform Apply'
     needs: terraform-plan
