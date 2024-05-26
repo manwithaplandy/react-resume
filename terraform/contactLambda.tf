@@ -1,9 +1,9 @@
-resource "aws_sns_topic" "email_alerts" {
+resource "aws_sns_topic" "website-contact-us" {
   name = "website-contact-us"
 }
 
 resource "aws_sns_topic_subscription" "email_subscription" {
-  topic_arn = aws_sns_topic.email_alerts.arn
+  topic_arn = aws_sns_topic.website-contact-us.arn
   protocol  = "email"
   endpoint  = var.email_address
 }
@@ -18,7 +18,7 @@ resource "aws_lambda_function" "form_submission" {
 
   environment {
     variables = {
-      SNS_TOPIC_ARN = aws_sns_topic.email_alerts.arn
+      SNS_TOPIC_ARN = aws_sns_topic.website-contact-us.arn
     }
   }
 }
@@ -67,7 +67,7 @@ resource "aws_iam_policy" "lambda_sns_publish" {
                 "sns:Publish"
             ],
             "Effect": "Allow",
-            "Resource": "${aws_sns_topic.email_alerts.arn}"
+            "Resource": "${aws_sns_topic.website-contact-us.arn}"
         }
     ]
 }
