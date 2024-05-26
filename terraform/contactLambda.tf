@@ -84,7 +84,7 @@ resource "aws_apigatewayv2_api" "api" {
   protocol_type = "HTTP"
   description   = "API for contact us form submission"
   cors_configuration {
-    allow_origins = ["andrewmalvani.com"]
+    allow_origins = ["https://andrewmalvani.com"]
     allow_methods = ["POST", "OPTIONS"]
     allow_headers = ["*"]
 
