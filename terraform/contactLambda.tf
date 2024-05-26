@@ -1,5 +1,5 @@
 resource "aws_sns_topic" "email_alerts" {
-  name = "email-alerts"
+  name = "website-contact-us"
 }
 
 resource "aws_sns_topic_subscription" "email_subscription" {
@@ -47,6 +47,11 @@ resource "aws_iam_role" "lambda_exec" {
     ]
 }
 EOF
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_exec_basic_execution" {
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_policy" "lambda_sns_publish" {
