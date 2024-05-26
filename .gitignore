@@ -39,3 +39,6 @@ yarn-error.log*
 # terraform sensitive files
 .terraform
 *.tfvars
+
+# Build artifact
+**/lambda_function.zip
