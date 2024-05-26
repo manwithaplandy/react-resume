@@ -33,10 +33,11 @@ const ContactForm: FC = memo(() => {
 const handleSendMessage = useCallback(
   async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.log('Sending message: ', data);
 
     try {
       // TODO: Change the URL to your own endpoint
-      const response = await axios.post('https://CHANGE_ME', data);
+      const response = await axios.post('https://dyvnn8wpfk.execute-api.us-west-1.amazonaws.com', data);
       console.log('Response: ', response);
     } catch (error) {
       console.error('Error sending message: ', error);
