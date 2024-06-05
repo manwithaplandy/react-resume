@@ -108,7 +108,7 @@ resource "aws_api_gateway_method_response" "post_200" {
   }
 }
 
-resource "aws_api_gateway_integration" "integration" {
+resource "aws_api_gateway_integration" "post_integration" {
   rest_api_id = aws_api_gateway_rest_api.api.id
   resource_id = aws_api_gateway_resource.contact.id
   http_method = aws_api_gateway_method.post_method.http_method
@@ -127,6 +127,8 @@ resource "aws_api_gateway_integration_response" "post_200" {
   response_parameters = {
     "method.response.header.Access-Control-Allow-Origin" = "'*'",
   }
+
+  depends_on = [aws_api_gateway_integration.post_integration]
 }
 
 resource "aws_api_gateway_method" "options_method" {
@@ -149,6 +151,14 @@ resource "aws_api_gateway_method_response" "http_200_options" {
   }
 }
 
+resource "aws_api_gateway_integration" "http_200_options" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = aws_api_gateway_resource.contact.id
+  http_method = aws_api_gateway_method.options_method.http_method
+
+  type = "MOCK"
+}
+
 resource "aws_api_gateway_integration_response" "http_200_options" {
   rest_api_id = aws_api_gateway_rest_api.api.id
   resource_id = aws_api_gateway_resource.contact.id
@@ -160,6 +170,8 @@ resource "aws_api_gateway_integration_response" "http_200_options" {
     "method.response.header.Access-Control-Allow-Methods" = "'POST,OPTIONS'",
     "method.response.header.Access-Control-Allow-Origin"  = "'*'",
   }
+
+  depends_on = [aws_api_gateway_integration.http_200_options]
 }
 
 resource "aws_api_gateway_resource" "healthcheck" {
@@ -195,6 +207,8 @@ resource "aws_api_gateway_integration_response" "healthcheck_200" {
   resource_id = aws_api_gateway_resource.healthcheck.id
   http_method = aws_api_gateway_method.healthcheck_get.http_method
   status_code = aws_api_gateway_method_response.healthcheck_200.status_code
+
+  depends_on = [aws_api_gateway_integration.healthcheck]
 }
 
 resource "aws_lambda_permission" "apigw" {
