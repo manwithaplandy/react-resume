@@ -108,6 +108,35 @@ resource "aws_apigatewayv2_integration" "integration" {
   payload_format_version = "2.0"
 }
 
+resource "aws_apigatewayv2_route" "options_route" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "OPTIONS /{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.options_integration.id}"
+}
+
+resource "aws_apigatewayv2_integration" "options_integration" {
+  api_id           = aws_apigatewayv2_api.api.id
+  integration_type = "MOCK"
+
+  request_templates = {
+    "application/json" = jsonencode({
+      statusCode = 200
+      responseTemplates = {
+        "application/json" = <<EOF
+{
+  "statusCode": 200,
+  "headers": {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
+  }
+}
+EOF
+      }
+    })
+  }
+}
+
 resource "aws_lambda_permission" "apigw" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
