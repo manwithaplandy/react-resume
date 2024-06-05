@@ -187,7 +187,7 @@ resource "aws_api_gateway_integration" "healthcheck" {
   resource_id = aws_api_gateway_resource.healthcheck.id
   http_method = aws_api_gateway_method.healthcheck_get.http_method
 
-  type                    = "MOCK"
+  type = "MOCK"
 }
 
 resource "aws_api_gateway_integration_response" "healthcheck_200" {
