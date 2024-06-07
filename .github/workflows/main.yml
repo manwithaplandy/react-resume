@@ -146,6 +146,8 @@ jobs:
       
       - name: cd sns_publish_lambda
         run: |
+          pwd
+          ls
           cd sns_publish_lambda
           ls
       
