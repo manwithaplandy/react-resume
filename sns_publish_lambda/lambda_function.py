@@ -14,6 +14,11 @@ def lambda_handler(event, context):
     print(response)
 
     return {
-        'statusCode': 200,
-        'body': 'Message sent to SNS topic'
+        "statusCode": 200,
+        "headers": {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "OPTIONS,POST"
+        },
+        "body": "Message sent to SNS topic"
     }
