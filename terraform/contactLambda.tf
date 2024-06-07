@@ -214,6 +214,14 @@ resource "aws_api_gateway_integration_response" "http_200_options" {
     "method.response.header.Access-Control-Allow-Origin"  = "'*'",
   }
 
+  response_templates = {
+    "application/json" = jsonencode(
+      {
+        statusCode = 200
+      }
+    )
+  }
+
   depends_on = [aws_api_gateway_integration.http_200_options]
 }
 
