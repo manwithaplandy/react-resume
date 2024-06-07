@@ -152,7 +152,7 @@ resource "aws_api_gateway_integration" "post_integration" {
   uri                     = aws_lambda_function.form_submission.invoke_arn
 
   request_templates = {
-      "application/json" = jsonencode(
+    "application/json" = jsonencode(
       {
         statusCode = 200
       }
