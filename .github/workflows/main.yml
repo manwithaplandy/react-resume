@@ -144,20 +144,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
       
-      - name: cd sns_publish_lambda
-        run: |
-          pwd
-          echo -----------------
-          ls
-          echo -----------------
-          cd sns_publish_lambda
-          echo -----------------
-          ls
-          echo -----------------
-      
       - name: Zip Lambda Code
         run: |
-          zip -r sns_publish_lambda.zip .
+          cd sns_publish_lambda
+          zip sns_publish_lambda.zip lambda_function.py
 
       - name: ls 2
         run: ls
