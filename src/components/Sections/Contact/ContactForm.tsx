@@ -37,7 +37,7 @@ const handleSendMessage = useCallback(
 
     try {
       // TODO: Change the URL to your own endpoint
-      const response = await axios.post('https://1l33y96n78.execute-api.us-west-1.amazonaws.com/contact', data);
+      const response = await axios.post('https://vs7dthj3vb.execute-api.us-west-1.amazonaws.com/api/contact', data);
       console.log('Response: ', response);
     } catch (error) {
       console.error('Error sending message: ', error);
