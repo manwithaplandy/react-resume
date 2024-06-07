@@ -103,24 +103,13 @@ resource "aws_api_gateway_stage" "api" {
   deployment_id = aws_api_gateway_deployment.api.id
 }
 
-resource "aws_api_gateway_method_settings" "post_method_settings" {
+resource "aws_api_gateway_method_settings" "api_method_settings" {
   rest_api_id = aws_api_gateway_rest_api.api.id
   stage_name  = aws_api_gateway_stage.api.stage_name
-  method_path = aws_api_gateway_resource.contact.path_part
+  method_path = "*/*"
   settings {
     logging_level          = "INFO"
-    data_trace_enabled     = true
-    throttling_burst_limit = 500
-    throttling_rate_limit  = 1000
-  }
-}
-
-resource "aws_api_gateway_method_settings" "healthcheck_method_settings" {
-  rest_api_id = aws_api_gateway_rest_api.api.id
-  stage_name  = aws_api_gateway_stage.api.stage_name
-  method_path = aws_api_gateway_resource.healthcheck.path_part
-  settings {
-    logging_level          = "INFO"
+    metrics_enabled        = true
     data_trace_enabled     = true
     throttling_burst_limit = 500
     throttling_rate_limit  = 1000
