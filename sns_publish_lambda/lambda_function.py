@@ -13,4 +13,7 @@ def lambda_handler(event, context):
 
     print(response)
 
-    return event
+    return {
+        'statusCode': 200,
+        'body': 'Message sent to SNS topic'
+    }
