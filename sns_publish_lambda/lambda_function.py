@@ -8,7 +8,7 @@ def lambda_handler(event, context):
 
     response = sns.publish(
         TopicArn=topic_arn,
-        Message=str(event['body']), 
+        Message=str(event['body'])
     )
 
     print(response)

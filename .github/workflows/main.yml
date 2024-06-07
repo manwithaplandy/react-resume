@@ -44,12 +44,6 @@ jobs:
           name: out
           path: out
 
-      - name: Upload sns publish lambda
-        uses: actions/upload-artifact@v4
-        with:
-          name: sns_publish_lambda
-          path: sns_publish_lambda
-
       - name: Terraform fmt
         run: terraform -chdir=terraform fmt -check
 
@@ -149,12 +143,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: sns_publish_lambda
-          path: sns_publish_lambda
       
       - name: Zip Lambda Code
         run: zip -r sns_publish_lambda/sns_publish_lambda.zip sns_publish_lambda/lambda_function.py
