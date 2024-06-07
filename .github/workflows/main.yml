@@ -144,9 +144,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
       
+      - name: ls
+        run: ls
+      
       - name: Zip Lambda Code
         run: zip sns_publish_lambda.zip sns_publish_lambda/lambda_function.py
         working-directory: ${{ github.workspace }}
+
+      - name: ls 2
+        run: ls
 
       - name: Update Lambda Code
         run: aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME --zip-file fileb://sns_publish_lambda.zip
