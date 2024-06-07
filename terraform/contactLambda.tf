@@ -89,10 +89,10 @@ resource "aws_api_gateway_rest_api" "api" {
 
 resource "aws_api_gateway_deployment" "api" {
   depends_on = [
-    aws_api_gateway_integration.post_integration, 
-    aws_api_gateway_integration.http_200_options, 
+    aws_api_gateway_integration.post_integration,
+    aws_api_gateway_integration.http_200_options,
     aws_api_gateway_integration.healthcheck,
-    ]
+  ]
   rest_api_id = aws_api_gateway_rest_api.api.id
   stage_name  = "api"
 }
@@ -108,11 +108,11 @@ resource "aws_api_gateway_method_settings" "post_method_settings" {
   stage_name  = aws_api_gateway_stage.api.stage_name
   method_path = aws_api_gateway_resource.contact.path_part
   settings {
-    logging_level = "INFO"
-    metrics_enabled = true
-    data_trace_enabled = true
+    logging_level          = "INFO"
+    metrics_enabled        = true
+    data_trace_enabled     = true
     throttling_burst_limit = 500
-    throttling_rate_limit = 1000
+    throttling_rate_limit  = 1000
   }
 }
 
@@ -121,11 +121,11 @@ resource "aws_api_gateway_method_settings" "healthcheck_method_settings" {
   stage_name  = aws_api_gateway_stage.api.stage_name
   method_path = aws_api_gateway_resource.healthcheck.path_part
   settings {
-    logging_level = "INFO"
-    metrics_enabled = true
-    data_trace_enabled = true
+    logging_level          = "INFO"
+    metrics_enabled        = true
+    data_trace_enabled     = true
     throttling_burst_limit = 500
-    throttling_rate_limit = 1000
+    throttling_rate_limit  = 1000
   }
 }
 
