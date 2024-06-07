@@ -150,14 +150,6 @@ resource "aws_api_gateway_integration" "post_integration" {
   type                    = "AWS_PROXY"
   integration_http_method = "POST"
   uri                     = aws_lambda_function.form_submission.invoke_arn
-
-  request_templates = {
-    "application/json" = jsonencode(
-      {
-        statusCode = 200
-      }
-    )
-  }
 }
 
 resource "aws_api_gateway_integration_response" "post_200" {
@@ -200,6 +192,14 @@ resource "aws_api_gateway_integration" "http_200_options" {
   http_method = aws_api_gateway_method.options_method.http_method
 
   type = "MOCK"
+
+  request_templates = {
+    "application/json" = jsonencode(
+      {
+        statusCode = 200
+      }
+    )
+  }
 }
 
 resource "aws_api_gateway_integration_response" "http_200_options" {
