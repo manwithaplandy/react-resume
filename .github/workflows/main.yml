@@ -147,7 +147,7 @@ jobs:
       - name: Zip Lambda Code
         run: |
           cd sns_publish_lambda
-          zip sns_publish_lambda.zip lambda_function.py
+          zip ../sns_publish_lambda.zip lambda_function.py
 
       - name: ls 2
         run: ls
