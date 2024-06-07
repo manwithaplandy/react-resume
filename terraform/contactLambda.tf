@@ -1,3 +1,4 @@
+# SNS Resources
 resource "aws_sns_topic" "website-contact-us" {
   name = "website-contact-us"
 }
@@ -8,6 +9,7 @@ resource "aws_sns_topic_subscription" "email_subscription" {
   endpoint  = var.email_address
 }
 
+# Lambda resources
 resource "aws_lambda_function" "form_submission" {
   function_name = "formSubmission"
   handler       = "lambda_function.lambda_handler"
@@ -79,17 +81,62 @@ resource "aws_iam_role_policy_attachment" "lambda_sns_publish_attach" {
   policy_arn = aws_iam_policy.lambda_sns_publish.arn
 }
 
+# API Gateway resources
 resource "aws_api_gateway_rest_api" "api" {
   name        = "FormSubmissionAPI"
   description = "API for contact us form submission"
 }
 
+resource "aws_api_gateway_deployment" "api" {
+  depends_on = [
+    aws_api_gateway_integration.post_integration, 
+    aws_api_gateway_integration.http_200_options, 
+    aws_api_gateway_integration.healthcheck,
+    ]
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  stage_name  = "api"
+}
+
+resource "aws_api_gateway_stage" "api" {
+  stage_name    = "api"
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  deployment_id = aws_api_gateway_deployment.api.id
+}
+
+resource "aws_api_gateway_method_settings" "post_method_settings" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  stage_name  = aws_api_gateway_stage.api.stage_name
+  method_path = aws_api_gateway_resource.contact.path_part
+  settings {
+    logging_level = "INFO"
+    metrics_enabled = true
+    data_trace_enabled = true
+    throttling_burst_limit = 500
+    throttling_rate_limit = 1000
+  }
+}
+
+resource "aws_api_gateway_method_settings" "healthcheck_method_settings" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  stage_name  = aws_api_gateway_stage.api.stage_name
+  method_path = aws_api_gateway_resource.healthcheck.path_part
+  settings {
+    logging_level = "INFO"
+    metrics_enabled = true
+    data_trace_enabled = true
+    throttling_burst_limit = 500
+    throttling_rate_limit = 1000
+  }
+}
+
+# /contact resource
 resource "aws_api_gateway_resource" "contact" {
   rest_api_id = aws_api_gateway_rest_api.api.id
   parent_id   = aws_api_gateway_rest_api.api.root_resource_id
   path_part   = "contact"
 }
 
+# POST /contact
 resource "aws_api_gateway_method" "post_method" {
   rest_api_id   = aws_api_gateway_rest_api.api.id
   resource_id   = aws_api_gateway_resource.contact.id
@@ -131,6 +178,7 @@ resource "aws_api_gateway_integration_response" "post_200" {
   depends_on = [aws_api_gateway_integration.post_integration]
 }
 
+# OPTIONS /contact
 resource "aws_api_gateway_method" "options_method" {
   rest_api_id   = aws_api_gateway_rest_api.api.id
   resource_id   = aws_api_gateway_resource.contact.id
@@ -174,6 +222,7 @@ resource "aws_api_gateway_integration_response" "http_200_options" {
   depends_on = [aws_api_gateway_integration.http_200_options]
 }
 
+# GET /healthcheck
 resource "aws_api_gateway_resource" "healthcheck" {
   rest_api_id = aws_api_gateway_rest_api.api.id
   parent_id   = aws_api_gateway_rest_api.api.root_resource_id
@@ -218,4 +267,10 @@ resource "aws_lambda_permission" "apigw" {
   principal     = "apigateway.amazonaws.com"
 
   source_arn = "${aws_api_gateway_rest_api.api.execution_arn}/*/*"
+}
+
+# APIGW CloudWatch logs
+resource "aws_cloudwatch_log_group" "api_gateway" {
+  name              = "/aws/api_gateway"
+  retention_in_days = 14
 }
