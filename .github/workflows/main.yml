@@ -156,7 +156,8 @@ jobs:
           echo -----------------
       
       - name: Zip Lambda Code
-        run: zip lambda_function.zip lambda_function.py
+        run: |
+          zip -r sns_publish_lambda.zip .
 
       - name: ls 2
         run: ls
