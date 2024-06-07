@@ -1,4 +1,4 @@
-import {FC, memo, useCallback, useMemo, useState} from 'react';
+import {FC, memo, useCallback, useMemo, useState, useEffect} from 'react';
 import axios from 'axios';
 
 interface FormData {
@@ -19,16 +19,14 @@ const ContactForm: FC = memo(() => {
 
   const [data, setData] = useState<FormData>(defaultData);
 
-  const onChange = useCallback(
-    <T extends HTMLInputElement | HTMLTextAreaElement>(event: React.ChangeEvent<T>): void => {
-      const {name, value} = event.target;
+const onChange = useCallback(
+  <T extends HTMLInputElement | HTMLTextAreaElement>(event: React.ChangeEvent<T>): void => {
+    const {name, value} = event.target;
 
-      const fieldData: Partial<FormData> = {[name]: value};
-
-      setData({...data, ...fieldData});
-    },
-    [data],
-  );
+    setData(prevData => ({...prevData, [name]: value}));
+  },
+  [],
+);
 
 const handleSendMessage = useCallback(
   async (event: React.FormEvent<HTMLFormElement>) => {
