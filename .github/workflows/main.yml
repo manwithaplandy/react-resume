@@ -163,7 +163,7 @@ jobs:
       - name: Update Lambda Code
         run: aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME --zip-file fileb://sns_publish_lambda/sns_publish_lambda.zip
         env:
-          LAMBDA_FUNCTION_NAME: ${{ secrets.LAMBDA_FUNCTION_NAME }}
+          LAMBDA_FUNCTION_NAME: ${{ vars.LAMBDA_FUNCTION_NAME }}
 
   cloudfront-invalidation:
       name: Invalidate CloudFront Distribution
