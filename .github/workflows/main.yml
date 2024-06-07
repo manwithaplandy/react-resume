@@ -136,7 +136,7 @@ jobs:
 
   update-lambda-code:
       name: Update Lambda Code
-      needs: update-s3-contents
+      needs: terraform-apply
       runs-on: ubuntu-latest
       environment: "AWS General"
       steps:
