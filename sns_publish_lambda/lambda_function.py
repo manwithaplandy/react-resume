@@ -6,6 +6,8 @@ def lambda_handler(event, context):
 
     topic_arn = os.environ['SNS_TOPIC_ARN']
 
+    print(event['body'])
+
     response = sns.publish(
         TopicArn=topic_arn,
         Message=str(event['body'])
