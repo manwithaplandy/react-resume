@@ -1,4 +1,4 @@
-import {FC, memo, useCallback, useMemo, useState, useEffect} from 'react';
+import {FC, memo, useCallback, useMemo, useState} from 'react';
 import axios from 'axios';
 
 interface FormData {
