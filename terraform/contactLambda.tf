@@ -150,6 +150,14 @@ resource "aws_api_gateway_integration" "post_integration" {
   type                    = "AWS_PROXY"
   integration_http_method = "POST"
   uri                     = aws_lambda_function.form_submission.invoke_arn
+
+  request_templates = {
+      "application/json" = jsonencode(
+      {
+        statusCode = 200
+      }
+    )
+  }
 }
 
 resource "aws_api_gateway_integration_response" "post_200" {
@@ -254,10 +262,4 @@ resource "aws_lambda_permission" "apigw" {
   principal     = "apigateway.amazonaws.com"
 
   source_arn = "${aws_api_gateway_rest_api.api.execution_arn}/*/*"
-}
-
-# APIGW CloudWatch logs
-resource "aws_cloudwatch_log_group" "api_gateway" {
-  name              = "/aws/api_gateway"
-  retention_in_days = 14
 }
