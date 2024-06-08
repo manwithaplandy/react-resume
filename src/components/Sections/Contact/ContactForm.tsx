@@ -19,6 +19,7 @@ const ContactForm: FC = memo(() => {
 
   const [data, setData] = useState<FormData>(defaultData);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const [isError, setIsError] = useState<boolean>(false);
 
 
 const onChange = useCallback(
@@ -32,6 +33,9 @@ const onChange = useCallback(
 
 const handleSendMessage = useCallback(
   async (event: React.FormEvent<HTMLFormElement>) => {
+    setIsSuccess(false);
+    setIsError(false);
+
     event.preventDefault();
     console.log('Sending message: ', data);
 
@@ -46,6 +50,7 @@ const handleSendMessage = useCallback(
       }
     } catch (error) {
       console.error('Error sending message: ', error);
+      setIsError(true);
     }
   },
   [data],
@@ -91,6 +96,7 @@ const handleSendMessage = useCallback(
         Send Message
       </button>
       {isSuccess && <p className="text-green-500 text-sm font-medium">Success!</p>}
+      {isError && <p className="text-red-500 text-sm font-medium">Error sending message. Please try again later.</p>}
     </form>
   );
 });
