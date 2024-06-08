@@ -18,11 +18,11 @@ def lambda_handler(event, context):
 
     try:
         email_body = f"""
-        Name: {eventbody['body']['name']}
+        Name: {eventbody['name']}
 
-        Email: {eventbody['body']['email']}
+        Email: {eventbody['email']}
 
-        Message: {eventbody['body']['message']}
+        Message: {eventbody['message']}
         """
     except KeyError as e:
         print(f"Error: {e}")
