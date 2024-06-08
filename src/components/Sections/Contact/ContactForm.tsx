@@ -18,6 +18,8 @@ const ContactForm: FC = memo(() => {
   );
 
   const [data, setData] = useState<FormData>(defaultData);
+  const [isSuccess, setIsSuccess] = useState<boolean>(false);
+
 
 const onChange = useCallback(
   <T extends HTMLInputElement | HTMLTextAreaElement>(event: React.ChangeEvent<T>): void => {
@@ -37,6 +39,11 @@ const handleSendMessage = useCallback(
       // TODO: Change the URL to your own endpoint
       const response = await axios.post('https://vs7dthj3vb.execute-api.us-west-1.amazonaws.com/api/contact', data);
       console.log('Response: ', response);
+
+      if (response.status === 200) {
+        setData(defaultData);
+        setIsSuccess(true);
+      }
     } catch (error) {
       console.error('Error sending message: ', error);
     }
@@ -74,6 +81,7 @@ const handleSendMessage = useCallback(
         type="submit">
         Send Message
       </button>
+      {isSuccess && <p className="text-green-500 text-sm font-medium">Success!</p>}
     </form>
   );
 });
