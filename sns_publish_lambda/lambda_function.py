@@ -14,12 +14,12 @@ def lambda_handler(event, context):
     Message: {event['body']['message']}
     """
 
-    response = sns.publish(
+    print(email_body)
+
+    sns.publish(
         TopicArn=topic_arn,
         Message=str(email_body)
     )
-
-    print(response)
 
     return {
         "statusCode": 200,
