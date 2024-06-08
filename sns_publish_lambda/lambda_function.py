@@ -1,5 +1,6 @@
 import os
 import boto3
+import json
 
 def lambda_handler(event, context):
     sns = boto3.client('sns')
@@ -7,14 +8,15 @@ def lambda_handler(event, context):
     topic_arn = os.environ['SNS_TOPIC_ARN']
 
     email_body = ""
+    eventbody = json.loads(event['body'])
 
     try:
         email_body = f"""
-        Name: {event['body']['name']}
+        Name: {eventbody['body']['name']}
 
-        Email: {event['body']['email']}
+        Email: {eventbody['body']['email']}
 
-        Message: {event['body']['message']}
+        Message: {eventbody['body']['message']}
         """
     except KeyError as e:
         print(f"Error: {e}")
