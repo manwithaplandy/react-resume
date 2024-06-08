@@ -10,6 +10,12 @@ def lambda_handler(event, context):
     email_body = ""
     eventbody = json.loads(event['body'])
 
+    # Debug prints
+    print(f"Event body: {event['body']}")
+    print(f"Event body type: {type(event['body'])}")
+    print(f"Event body parsed: {eventbody}")
+    print(f"Event body parsed type: {type(eventbody)}")
+
     try:
         email_body = f"""
         Name: {eventbody['body']['name']}
