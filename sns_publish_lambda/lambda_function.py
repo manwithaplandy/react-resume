@@ -6,13 +6,27 @@ def lambda_handler(event, context):
 
     topic_arn = os.environ['SNS_TOPIC_ARN']
 
-    email_body = f"""
-    Name: {event['body']['name']}
+    email_body = ""
 
-    Email: {event['body']['email']}
+    try:
+        email_body = f"""
+        Name: {event['body']['name']}
 
-    Message: {event['body']['message']}
-    """
+        Email: {event['body']['email']}
+
+        Message: {event['body']['message']}
+        """
+    except KeyError as e:
+        print(f"Error: {e}")
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "OPTIONS,POST"
+            },
+            "body": "Missing required fields name, email, or message"
+        }
 
     print(email_body)
 
