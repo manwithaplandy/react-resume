@@ -53,7 +53,7 @@ const handleSendMessage = useCallback(
       setIsError(true);
     }
   },
-  [data],
+  [data, defaultData],
 );
 
   const inputClasses =
