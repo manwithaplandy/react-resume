@@ -38,9 +38,13 @@ def lambda_handler(event, context):
 
     print(email_body)
 
+    # Static values
+    subject = "New contact request from andrewmalvani.com"
+
     sns.publish(
         TopicArn=topic_arn,
-        Message=str(email_body)
+        Message=str(email_body),
+        subject=subject
     )
 
     return {
