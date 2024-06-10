@@ -44,7 +44,7 @@ def lambda_handler(event, context):
     sns.publish(
         TopicArn=topic_arn,
         Message=str(email_body),
-        subject=subject
+        Subject=subject
     )
 
     return {
