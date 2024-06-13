@@ -70,7 +70,7 @@ export const heroData: Hero = {
     <>
       <p className="prose-sm text-stone-200 sm:prose-base lg:prose-lg">
         I'm a San Diego based <strong className="text-stone-100">DevSecOps Engineer</strong>, currently working
-        at <strong className="text-stone-100">Fuse Integration</strong> helping build and maintain robust CI/CD pipelines and maintain code security.
+        at <strong className="text-stone-100">General Atomics</strong> helping build and maintain robust CI/CD pipelines and maintain code security.
       </p>
       <p className="prose-sm text-stone-200 sm:prose-base lg:prose-lg">
         In my free time time, you can catch me improving my <strong className="text-stone-100">engineering skills</strong>,
