@@ -69,8 +69,8 @@ export const heroData: Hero = {
   description: (
     <>
       <p className="prose-sm text-stone-200 sm:prose-base lg:prose-lg">
-        I'm a San Diego based <strong className="text-stone-100">DevSecOps Engineer</strong>, currently working
-        at <strong className="text-stone-100">General Atomics</strong> helping build and maintain robust CI/CD pipelines and maintain code security.
+        I'm a San Diego based <strong className="text-stone-100">AI/ML Engineer</strong>, currently working
+        at <strong className="text-stone-100">General Atomics</strong> driving innovation by harnessing data and AI to optimize and transform company operations, enhancing efficiency and delivering actionable insights.
       </p>
       <p className="prose-sm text-stone-200 sm:prose-base lg:prose-lg">
         In my free time time, you can catch me improving my <strong className="text-stone-100">engineering skills</strong>,
@@ -98,7 +98,7 @@ export const heroData: Hero = {
  */
 export const aboutData: About = {
   profileImageSrc: profilepic,
-  description: `I'm a DevOps Engineer with over 5 years of experience in the IT industry, and a passion for technology and AI. My expertise lies in designing, implementing and managing cloud-based systems to ensure high availability and performance. I am proficient in AWS and Azure services and have hands-on experience with Docker, Kubernetes, Terraform, Ansible, and others. I also have experience building generative AI models and applications, including self-hosting LLMs, consuming LLM APIs, and fine-tuning models for specific tasks.`,
+  description: `I'm a Software Engineer with over 5 years of experience in the IT industry, and a passion for technology and AI. My expertise lies in designing, implementing and managing cloud-based systems to ensure high availability and performance. I am proficient in AWS and Azure services and have hands-on experience with Docker, Kubernetes, Terraform, Ansible, and others. I also have experience building generative AI models and applications, including self-hosting LLMs, consuming LLM APIs, and fine-tuning models for specific tasks.`,
   aboutItems: [
     {label: 'Location', text: 'San Diego, CA', Icon: MapIcon},
     // {label: 'Age', text: '29', Icon: CalendarIcon},
@@ -232,11 +232,12 @@ export const education: TimelineItem[] = [
 export const experience: TimelineItem[] = [
   {
     date: 'June 2024 - Present',
-    location: 'Fuse Integration',
-    title: 'DevSecOps Engineer',
+    location: 'General Atomics',
+    title: 'AI/ML Engineer',
     content: (
       <p>
-      As a DevSecOps engineer, I am responsible for building and maintaining robust CI/CD pipelines, ensuring code security, and managing cloud-based systems to ensure high availability and performance.
+        As an AI/ML Engineer, I spearhead the development and deployment of advanced machine learning models to revolutionize company operations. My contributions include creating a wide array of machine learning models, from predictive analytics and classification algorithms to clustering and recommendation systems, all aimed at optimizing business processes. 
+        Additionally, I have implemented cutting-edge generative AI models to automate tasks, such as self-hosting large language models, utilizing LLM APIs, and fine-tuning models for specific needs, driving significant efficiency and innovation across the organization.
       </p>
     ),
   },
