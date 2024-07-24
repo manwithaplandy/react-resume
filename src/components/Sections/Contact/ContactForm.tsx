@@ -1,5 +1,5 @@
-import {FC, memo, useCallback, useMemo, useState} from 'react';
 import axios from 'axios';
+import {FC, memo, useCallback, useMemo, useState} from 'react';
 
 interface FormData {
   name: string;
