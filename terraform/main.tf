@@ -189,10 +189,10 @@ resource "aws_cloudfront_distribution" "website_distribution" {
   }
 
   origin {
-    connection_attempts      = 3
-    connection_timeout       = 10
-    domain_name              = "andrewmalvani.com"
-    origin_id                = "andrewmalvani.com"
+    connection_attempts = 3
+    connection_timeout  = 10
+    domain_name         = "andrewmalvani.com"
+    origin_id           = "andrewmalvani.com"
     custom_origin_config {
       http_port                = 80
       https_port               = 443
@@ -204,10 +204,10 @@ resource "aws_cloudfront_distribution" "website_distribution" {
   }
 
   origin {
-    connection_attempts      = 3
-    connection_timeout       = 10
-    domain_name              = "www.andrewmalvani.com"
-    origin_id                = "www.andrewmalvani.com"
+    connection_attempts = 3
+    connection_timeout  = 10
+    domain_name         = "www.andrewmalvani.com"
+    origin_id           = "www.andrewmalvani.com"
     custom_origin_config {
       http_port                = 80
       https_port               = 443
