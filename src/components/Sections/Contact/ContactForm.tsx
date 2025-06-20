@@ -21,52 +21,52 @@ const ContactForm: FC = memo(() => {
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
 
+  const onChange = useCallback(
+    <T extends HTMLInputElement | HTMLTextAreaElement>(event: React.ChangeEvent<T>): void => {
+      const {name, value} = event.target;
 
-const onChange = useCallback(
-  <T extends HTMLInputElement | HTMLTextAreaElement>(event: React.ChangeEvent<T>): void => {
-    const {name, value} = event.target;
+      setData(prevData => ({...prevData, [name]: value}));
+    },
+    [],
+  );
 
-    setData(prevData => ({...prevData, [name]: value}));
-  },
-  [],
-);
+  const handleSendMessage = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      setIsSuccess(false);
+      setIsError(false);
 
-const handleSendMessage = useCallback(
-  async (event: React.FormEvent<HTMLFormElement>) => {
-    setIsSuccess(false);
-    setIsError(false);
+      event.preventDefault();
+      console.log('Sending message: ', data);
 
-    event.preventDefault();
-    console.log('Sending message: ', data);
+      try {
+        // TODO: Change the URL to your own endpoint
+        const response = await axios.post('https://vs7dthj3vb.execute-api.us-west-1.amazonaws.com/api/contact', data);
+        console.log('Response: ', response);
 
-    try {
-      // TODO: Change the URL to your own endpoint
-      const response = await axios.post('https://vs7dthj3vb.execute-api.us-west-1.amazonaws.com/api/contact', data);
-      console.log('Response: ', response);
-
-      if (response.status === 200) {
-        setData(defaultData);
-        setIsSuccess(true);
+        if (response.status === 200) {
+          setData(defaultData);
+          setIsSuccess(true);
+        }
+      } catch (error) {
+        console.error('Error sending message: ', error);
+        setIsError(true);
       }
-    } catch (error) {
-      console.error('Error sending message: ', error);
-      setIsError(true);
-    }
-  },
-  [data, defaultData],
-);
+    },
+    [data, defaultData],
+  );
 
   const inputClasses =
     'bg-neutral-700 border-0 focus:border-0 focus:outline-none focus:ring-1 focus:ring-orange-600 rounded-md placeholder:text-neutral-400 placeholder:text-sm text-neutral-200 text-sm';
 
   return (
     <form className="grid min-h-[320px] grid-cols-1 gap-y-4" method="POST" onSubmit={handleSendMessage}>
-      <input 
-        className={inputClasses} 
-        name="name" 
-        onChange={onChange} 
-        placeholder="Name" 
-        required type="text" 
+      <input
+        className={inputClasses}
+        name="name"
+        onChange={onChange}
+        placeholder="Name"
+        required
+        type="text"
         value={data.name}
       />
       <input

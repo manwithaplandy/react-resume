@@ -11,8 +11,8 @@ import {
 import GithubIcon from '../components/Icon/GithubIcon';
 // import InstagramIcon from '../components/Icon/InstagramIcon';
 import LinkedInIcon from '../components/Icon/LinkedInIcon';
-import darwin from '../images/darwin.jpg'
-import downeyjr from '../images/downeyjr.jpg'
+import darwin from '../images/darwin.jpg';
+import downeyjr from '../images/downeyjr.jpg';
 // import StackOverflowIcon from '../components/Icon/StackOverflowIcon';
 // import TwitterIcon from '../components/Icon/TwitterIcon';
 import heroImage from '../images/header-background.webp';
@@ -21,10 +21,17 @@ import porfolioImage1 from '../images/portfolio/GitHub__headpic.jpg';
 import porfolioImage4 from '../images/portfolio/retirement_site.png';
 import porfolioImage2 from '../images/portfolio/website-diagram.png';
 import profilepic from '../images/profilepic.jpg';
-import stevejobs from '../images/stevejobs.jpg'
+import stevejobs from '../images/stevejobs.jpg';
 import testimonialImage from '../images/testimonial.webp';
+// Certification images - will be populated later
+// import awsCert from '../images/portfolio/certs/aws-solutions-architect.png';
+// import terraformCert from '../images/portfolio/certs/terraform-associate.png';
+// import azureCert from '../images/portfolio/certs/azure-ai-engineer.png';
+// import comptiaSpec from '../images/portfolio/certs/comptia-cysa.png';
+// import tenableSpec from '../images/portfolio/certs/tenable-specialist.png';
 import {
   About,
+  Certification,
   ContactSection,
   ContactType,
   Hero,
@@ -41,7 +48,7 @@ import {
  */
 export const homePageMeta: HomepageMeta = {
   title: "Andrew's Resume",
-  description: "Resume website built with Next.js, and hosted on AWS.",
+  description: 'Resume website built with Next.js, and hosted on AWS.',
 };
 
 /**
@@ -69,12 +76,15 @@ export const heroData: Hero = {
   description: (
     <>
       <p className="prose-sm text-stone-200 sm:prose-base lg:prose-lg">
-        I'm a San Diego based <strong className="text-stone-100">AI/ML Engineer</strong>, currently working
-        at <strong className="text-stone-100">General Atomics</strong> driving innovation by harnessing data and AI to optimize and transform company operations, enhancing efficiency and delivering actionable insights.
+        I'm a San Diego based <strong className="text-stone-100">AI/ML Engineer</strong>, currently working at{' '}
+        <strong className="text-stone-100">General Atomics</strong> driving innovation by harnessing data and AI to
+        optimize and transform company operations, enhancing efficiency and delivering actionable insights.
       </p>
       <p className="prose-sm text-stone-200 sm:prose-base lg:prose-lg">
-        In my free time time, you can catch me improving my <strong className="text-stone-100">engineering skills</strong>,
-        playing with my <strong className="text-stone-100">cats</strong>, exploring nature, or <strong className="text-stone-100">golfing</strong>.
+        In my free time time, you can catch me improving my{' '}
+        <strong className="text-stone-100">engineering skills</strong>, playing with my{' '}
+        <strong className="text-stone-100">cats</strong>, exploring nature, or{' '}
+        <strong className="text-stone-100">golfing</strong>.
       </p>
     </>
   ),
@@ -131,7 +141,7 @@ export const skills: SkillGroup[] = [
       {
         name: 'CI/CD',
         level: 7,
-      }
+      },
     ],
   },
   {
@@ -151,8 +161,8 @@ export const skills: SkillGroup[] = [
       },
       {
         name: 'Powershell',
-        level: 5
-      }
+        level: 5,
+      },
     ],
   },
   {
@@ -168,7 +178,7 @@ export const skills: SkillGroup[] = [
       },
       {
         name: 'LangChain & LangGraph',
-        level: 9
+        level: 9,
       },
       {
         name: 'Learning',
@@ -189,12 +199,12 @@ export const skills: SkillGroup[] = [
       },
       {
         name: 'GCP',
-        level: 3
+        level: 3,
       },
       {
         name: 'Cloudflare',
-        level: 5
-      }
+        level: 5,
+      },
     ],
   },
 ];
@@ -223,10 +233,11 @@ export const portfolioItems: PortfolioItem[] = [
   // },
   {
     title: 'Retirement Simulations',
-    description: 'A retirement planning website built using a React frontend and Node.js backend, hosted using Cloudflare.',
+    description:
+      'A retirement planning website built using a React frontend and Node.js backend, hosted using Cloudflare.',
     url: 'https://retire.andrewmalvani.com',
     image: porfolioImage4,
-  }
+  },
 ];
 
 /**
@@ -238,7 +249,7 @@ export const education: TimelineItem[] = [
     location: 'UC Santa Barbara',
     title: "Bachelor's - Psychology",
     content: <p></p>,
-  }
+  },
 ];
 
 export const experience: TimelineItem[] = [
@@ -248,9 +259,13 @@ export const experience: TimelineItem[] = [
     title: 'Lead AI/ML Engineer',
     content: (
       <p>
-        As the Lead AI/ML Engineer at General Atomics, I spearhead the development and deployment of advanced AI agents to revolutionize company operations. In this role, I served as the SME on LLMs for the organization, and I lead the team that developed a secure internal chatbot, allowing users to self-service AI assistants using RAG with their own data.
-        Additionally, I designed and implemented an AI agent to reduce time spent on writing engineering technical orders by 40% by using AI agents to search a massive corpus of supporting documents and generate TO data. 
-        I also rolled out and supported AI software development assistants to accelerate software development velocity by 50% while maintaining security and trustworthiness. 
+        As the Lead AI/ML Engineer at General Atomics, I spearhead the development and deployment of advanced AI agents
+        to revolutionize company operations. In this role, I served as the SME on LLMs for the organization, and I lead
+        the team that developed a secure internal chatbot, allowing users to self-service AI assistants using RAG with
+        their own data. Additionally, I designed and implemented an AI agent to reduce time spent on writing engineering
+        technical orders by 40% by using AI agents to search a massive corpus of supporting documents and generate TO
+        data. I also rolled out and supported AI software development assistants to accelerate software development
+        velocity by 50% while maintaining security and trustworthiness.
       </p>
     ),
   },
@@ -260,10 +275,11 @@ export const experience: TimelineItem[] = [
     title: 'Systems Administrator',
     content: (
       <p>
-        Working as a Systems Administrator, I am tasked with improving and modernizing the company's IT infrastructure. 
-        I brought concepts of DevOps and Agile development to automate, innovate, and quickly generate value for the over 15000 end users.
-        Additionally, I have spearheaded the team to implement generative AI to enable its use throughout the enterprise. 
-        I have also personally developed a number of generative AI-powered applications to improve access to information for technicians and executives.
+        Working as a Systems Administrator, I am tasked with improving and modernizing the company's IT infrastructure.
+        I brought concepts of DevOps and Agile development to automate, innovate, and quickly generate value for the
+        over 15000 end users. Additionally, I have spearheaded the team to implement generative AI to enable its use
+        throughout the enterprise. I have also personally developed a number of generative AI-powered applications to
+        improve access to information for technicians and executives.
       </p>
     ),
   },
@@ -273,9 +289,10 @@ export const experience: TimelineItem[] = [
     title: 'IT Strategic Analyst',
     content: (
       <p>
-        As an IT strategic analyst, it was my job to be tier 1 helpdesk, systems administrator, and automation engineer all at once. 
-        I had to anticipate the needs of the end user, respond to them, and then work to implement solutions that met their needs. 
-        I helped in the development of new internal tools using Python, js/jquery, Mulesoft, and others which significantly improved our efficiency. 
+        As an IT strategic analyst, it was my job to be tier 1 helpdesk, systems administrator, and automation engineer
+        all at once. I had to anticipate the needs of the end user, respond to them, and then work to implement
+        solutions that met their needs. I helped in the development of new internal tools using Python, js/jquery,
+        Mulesoft, and others which significantly improved our efficiency.
       </p>
     ),
   },
@@ -285,12 +302,45 @@ export const experience: TimelineItem[] = [
     title: 'Compliance & Marketing Consultant',
     content: (
       <p>
-        At Reynolds & Reynolds, our clients were car dealerships across the country. 
-        I was tasked with auditing their compliance with all of the relevant authorities, including local, state, federal, and corporate.
-        Where there were inconsistencies or compliance failures, it was my job to resolve them quickly, and advise the client on preventing any future violations. 
-        I also helped with marketing strategy and content creation.
+        At Reynolds & Reynolds, our clients were car dealerships across the country. I was tasked with auditing their
+        compliance with all of the relevant authorities, including local, state, federal, and corporate. Where there
+        were inconsistencies or compliance failures, it was my job to resolve them quickly, and advise the client on
+        preventing any future violations. I also helped with marketing strategy and content creation.
       </p>
     ),
+  },
+];
+
+export const certifications: Certification[] = [
+  {
+    name: 'AWS Solutions Architect Associate',
+    issuer: 'Amazon Web Services',
+    date: '2024',
+    // image: awsCert, // Will be uncommented when image is added
+  },
+  {
+    name: 'HashiCorp Terraform Associate',
+    issuer: 'HashiCorp',
+    date: '2023',
+    // image: terraformCert, // Will be uncommented when image is added
+  },
+  {
+    name: 'Azure AI Engineer',
+    issuer: 'Microsoft',
+    date: '2025',
+    // image: azureCert, // Will be uncommented when image is added
+  },
+  {
+    name: 'CompTIA CySA+',
+    issuer: 'CompTIA',
+    date: '2022',
+    // image: comptiaSpec, // Will be uncommented when image is added
+  },
+  {
+    name: 'Tenable.sc Specialist',
+    issuer: 'Tenable',
+    date: '2023',
+    // image: tenableSpec, // Will be uncommented when image is added
   },
 ];
 
@@ -312,7 +362,7 @@ export const testimonial: TestimonialSection = {
     },
     {
       name: 'Robert Downey Jr.',
-      text: "How did you get in here? What is this?! Where is my security? And why are you wearing my hat?",
+      text: 'How did you get in here? What is this?! Where is my security? And why are you wearing my hat?',
       image: downeyjr,
     },
   ],
@@ -324,7 +374,8 @@ export const testimonial: TestimonialSection = {
 
 export const contact: ContactSection = {
   headerText: 'Get in touch.',
-  description: 'For further inquiries or if you have any questions about my services, please feel free to contact me using this form or the information below. I look forward to hearing from you soon.',
+  description:
+    'For further inquiries or if you have any questions about my services, please feel free to contact me using this form or the information below. I look forward to hearing from you soon.',
   items: [
     {
       type: ContactType.Email,

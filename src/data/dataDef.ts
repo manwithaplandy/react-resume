@@ -93,6 +93,14 @@ export interface TimelineItem {
   content: JSX.Element;
 }
 
+export interface Certification {
+  name: string;
+  issuer: string;
+  date: string;
+  credentialId?: string;
+  image?: string | StaticImageData;
+}
+
 /**
  * Testimonial section
  */
