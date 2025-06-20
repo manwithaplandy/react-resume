@@ -17,8 +17,8 @@ import downeyjr from '../images/downeyjr.jpg'
 // import TwitterIcon from '../components/Icon/TwitterIcon';
 import heroImage from '../images/header-background.webp';
 import porfolioImage1 from '../images/portfolio/GitHub__headpic.jpg';
-import porfolioImage3 from '../images/portfolio/portfolio-10.jpg';
-import porfolioImage4 from '../images/portfolio/portfolio-11.jpg';
+// import porfolioImage3 from '../images/portfolio/portfolio-10.jpg';
+import porfolioImage4 from '../images/portfolio/retirement_site.png';
 import porfolioImage2 from '../images/portfolio/website-diagram.png';
 import profilepic from '../images/profilepic.jpg';
 import stevejobs from '../images/stevejobs.jpg'
@@ -98,7 +98,7 @@ export const heroData: Hero = {
  */
 export const aboutData: About = {
   profileImageSrc: profilepic,
-  description: `I'm a Software Engineer with over 5 years of experience in the IT industry, and a passion for technology and AI. My expertise lies in designing, implementing and managing cloud-based systems to ensure high availability and performance. I am proficient in AWS and Azure services and have hands-on experience with Docker, Kubernetes, Terraform, Ansible, and others. I also have experience building generative AI models and applications, including self-hosting LLMs, consuming LLM APIs, and fine-tuning models for specific tasks.`,
+  description: `I'm a Software Engineer currently pursuing a Master's degree in Computer Science with over 5 years of experience in the IT industry, with a focus on DevOps and AI. My expertise lies in designing, implementing, and managing cloud-based and self-hosted AI Agents to optimize company operations in a trustworthy, transparent, and cost-effective manner. I am proficient in AWS and Azure services, with certifications in both. I have experience using LLM orchestration frameworks like LangChain, LangGraph, Semantic Kernel, LlamaIndex, AutoGen, and CrewAI to orchestrate AI-powered workfows and autonomous AI agents. I also have experience with LLM protocols like MCP and A2A enabling agents to use external tools, and coordinate with other agents to complete tasks on behalf of users.`,
   aboutItems: [
     {label: 'Location', text: 'San Diego, CA', Icon: MapIcon},
     // {label: 'Age', text: '29', Icon: CalendarIcon},
@@ -129,8 +129,8 @@ export const skills: SkillGroup[] = [
         level: 4,
       },
       {
-        name: 'Ansible',
-        level: 3,
+        name: 'CI/CD',
+        level: 7,
       }
     ],
   },
@@ -142,7 +142,7 @@ export const skills: SkillGroup[] = [
         level: 8,
       },
       {
-        name: 'Javascript',
+        name: 'Javascript & Typescript (Node, React)',
         level: 5,
       },
       {
@@ -151,38 +151,50 @@ export const skills: SkillGroup[] = [
       },
       {
         name: 'Powershell',
-        level: 6
+        level: 5
       }
     ],
   },
   {
-    name: 'Other Skills',
+    name: 'Generative AI Skills',
     skills: [
       {
-        name: 'Generative AI',
+        name: 'RAG',
         level: 9,
       },
       {
-        name: 'Process Automation',
-        level: 7,
+        name: 'Agents',
+        level: 9,
       },
       {
-        name: 'Learning new skills',
+        name: 'LangChain & LangGraph',
+        level: 9
+      },
+      {
+        name: 'Learning',
         level: 10,
       },
     ],
   },
   {
-    name: 'Spoken languages',
+    name: 'Cloud Services',
     skills: [
       {
-        name: 'English',
-        level: 10,
+        name: 'AWS',
+        level: 6,
       },
       {
-        name: 'Spanish',
-        level: 3,
+        name: 'Azure',
+        level: 7,
       },
+      {
+        name: 'GCP',
+        level: 3
+      },
+      {
+        name: 'Cloudflare',
+        level: 5
+      }
     ],
   },
 ];
@@ -203,16 +215,16 @@ export const portfolioItems: PortfolioItem[] = [
     url: 'https://drive.google.com/file/d/1L__W0DVnXuihCFFZveYC-0zdts5VnorR/view?usp=sharing',
     image: porfolioImage2,
   },
+  // {
+  //   title: 'A funny domain I registered',
+  //   description: 'Click for a fun surprise.',
+  //   url: 'https://thiswebsitehatesyou.com',
+  //   image: porfolioImage3,
+  // },
   {
-    title: 'A funny domain I registered',
-    description: 'Click for a fun surprise.',
-    url: 'https://thiswebsitehatesyou.com',
-    image: porfolioImage3,
-  },
-  {
-    title: 'Project yet to be completed',
-    description: 'I always have something in the works. Check back soon!',
-    url: 'https://andrewmalvani.com',
+    title: 'Retirement Simulations',
+    description: 'A retirement planning website built using a React frontend and Node.js backend, hosted using Cloudflare.',
+    url: 'https://retire.andrewmalvani.com',
     image: porfolioImage4,
   }
 ];
@@ -233,11 +245,12 @@ export const experience: TimelineItem[] = [
   {
     date: 'June 2024 - Present',
     location: 'General Atomics',
-    title: 'AI/ML Engineer',
+    title: 'Lead AI/ML Engineer',
     content: (
       <p>
-        As an AI/ML Engineer, I spearhead the development and deployment of advanced machine learning models to revolutionize company operations. My contributions include creating a wide array of machine learning models, from predictive analytics and classification algorithms to clustering and recommendation systems, all aimed at optimizing business processes. 
-        Additionally, I have implemented cutting-edge generative AI models to automate tasks, such as self-hosting large language models, utilizing LLM APIs, and fine-tuning models for specific needs, driving significant efficiency and innovation across the organization.
+        As the Lead AI/ML Engineer at General Atomics, I spearhead the development and deployment of advanced AI agents to revolutionize company operations. In this role, I served as the SME on LLMs for the organization, and I lead the team that developed a secure internal chatbot, allowing users to self-service AI assistants using RAG with their own data.
+        Additionally, I designed and implemented an AI agent to reduce time spent on writing engineering technical orders by 40% by using AI agents to search a massive corpus of supporting documents and generate TO data. 
+        I also rolled out and supported AI software development assistants to accelerate software development velocity by 50% while maintaining security and trustworthiness. 
       </p>
     ),
   },
