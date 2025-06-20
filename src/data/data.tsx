@@ -16,6 +16,12 @@ import downeyjr from '../images/downeyjr.jpg';
 // import StackOverflowIcon from '../components/Icon/StackOverflowIcon';
 // import TwitterIcon from '../components/Icon/TwitterIcon';
 import heroImage from '../images/header-background.webp';
+// Certification images
+import awsCert from '../images/portfolio/certs/aws_saa.webp';
+import azureCert from '../images/portfolio/certs/azure_ai_eng.svg';
+import comptiaSpec from '../images/portfolio/certs/cysa.png';
+import tenableSpec from '../images/portfolio/certs/tenablesc.webp';
+import terraformCert from '../images/portfolio/certs/terraform-badge-mini-associate.svg';
 import porfolioImage1 from '../images/portfolio/GitHub__headpic.jpg';
 // import porfolioImage3 from '../images/portfolio/portfolio-10.jpg';
 import porfolioImage4 from '../images/portfolio/retirement_site.png';
@@ -23,12 +29,6 @@ import porfolioImage2 from '../images/portfolio/website-diagram.png';
 import profilepic from '../images/profilepic.jpg';
 import stevejobs from '../images/stevejobs.jpg';
 import testimonialImage from '../images/testimonial.webp';
-// Certification images - will be populated later
-// import awsCert from '../images/portfolio/certs/aws-solutions-architect.png';
-// import terraformCert from '../images/portfolio/certs/terraform-associate.png';
-// import azureCert from '../images/portfolio/certs/azure-ai-engineer.png';
-// import comptiaSpec from '../images/portfolio/certs/comptia-cysa.png';
-// import tenableSpec from '../images/portfolio/certs/tenable-specialist.png';
 import {
   About,
   Certification,
@@ -316,31 +316,31 @@ export const certifications: Certification[] = [
     name: 'AWS Solutions Architect Associate',
     issuer: 'Amazon Web Services',
     date: '2024',
-    // image: awsCert, // Will be uncommented when image is added
+    image: awsCert,
   },
   {
     name: 'HashiCorp Terraform Associate',
     issuer: 'HashiCorp',
     date: '2023',
-    // image: terraformCert, // Will be uncommented when image is added
+    image: terraformCert,
   },
   {
     name: 'Azure AI Engineer',
     issuer: 'Microsoft',
     date: '2025',
-    // image: azureCert, // Will be uncommented when image is added
+    image: azureCert,
   },
   {
     name: 'CompTIA CySA+',
     issuer: 'CompTIA',
     date: '2022',
-    // image: comptiaSpec, // Will be uncommented when image is added
+    image: comptiaSpec,
   },
   {
     name: 'Tenable.sc Specialist',
     issuer: 'Tenable',
     date: '2023',
-    // image: tenableSpec, // Will be uncommented when image is added
+    image: tenableSpec,
   },
 ];
 
