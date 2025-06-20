@@ -188,7 +188,37 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     origin_access_control_id = aws_cloudfront_origin_access_control.oac.id
   }
 
-  aliases = ["andrewmalvani.com"]
+  origin {
+    connection_attempts      = 3
+    connection_timeout       = 10
+    domain_name              = "andrewmalvani.com"
+    origin_id                = "andrewmalvani.com"
+    custom_origin_config {
+      http_port                = 80
+      https_port               = 443
+      origin_keepalive_timeout = 5
+      origin_protocol_policy   = "match-viewer"
+      origin_read_timeout      = 30
+      origin_ssl_protocols     = ["TLSv1.2"]
+    }
+  }
+
+  origin {
+    connection_attempts      = 3
+    connection_timeout       = 10
+    domain_name              = "www.andrewmalvani.com"
+    origin_id                = "www.andrewmalvani.com"
+    custom_origin_config {
+      http_port                = 80
+      https_port               = 443
+      origin_keepalive_timeout = 5
+      origin_protocol_policy   = "match-viewer"
+      origin_read_timeout      = 30
+      origin_ssl_protocols     = ["TLSv1.2"]
+    }
+  }
+
+  aliases = ["andrewmalvani.com", "www.andrewmalvani.com"]
 
   enabled             = true
   default_root_object = "index.html"
@@ -200,7 +230,7 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
     origin_request_policy_id = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
 
-    viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy = "allow-all"
     # min_ttl                = 0
     # default_ttl            = 3600
     # max_ttl                = 86400
