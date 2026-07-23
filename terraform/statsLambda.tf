@@ -182,11 +182,13 @@ resource "aws_cloudwatch_log_group" "form_submission" {
   retention_in_days = 30
 }
 
-# Silent-staleness guard: if the aggregator errors, stats.json quietly stops
-# updating — page the owner via the existing contact-us SNS email topic.
+# Cloudflare-fetch guard: the aggregator publishes stats.json from CloudFront
+# data before raising on a Cloudflare failure, so an error here means the
+# Cloudflare uniques/countries are lagging — not that stats.json stopped
+# updating. Page the owner via the existing contact-us SNS email topic.
 resource "aws_cloudwatch_metric_alarm" "stats_aggregator_errors" {
   alarm_name          = "stats-aggregator-errors"
-  alarm_description   = "The stats aggregator Lambda failed; stats.json is going stale"
+  alarm_description   = "The stats aggregator Lambda's Cloudflare analytics fetch failed. stats.json still publishes on schedule with CloudFront-derived stats; only Cloudflare uniques/countries lag until a successful run. Usually transient - if the alarm self-cleared, Lambda's async auto-retry already recovered."
   namespace           = "AWS/Lambda"
   metric_name         = "Errors"
   statistic           = "Sum"
