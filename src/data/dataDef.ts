@@ -103,11 +103,21 @@ export interface SkillGroup {
 /**
  * Portfolio section
  */
+export interface PortfolioCaseStudy {
+  problem: string;
+  contribution: string;
+  decision: string;
+  outcome: string;
+}
+
 export interface PortfolioItem {
   title: string;
   description: string;
   url: string;
   image: string | StaticImageData;
+  imageAlt: string;
+  imageFit?: 'cover' | 'contain';
+  caseStudy?: PortfolioCaseStudy;
 }
 
 /**

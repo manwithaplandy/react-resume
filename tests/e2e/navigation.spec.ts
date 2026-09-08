@@ -16,7 +16,7 @@ test('graph state retains one graph page identity', async ({page}) => {
 
 test('the architecture card opens a real local image', async ({page, request}) => {
   await page.goto('/#portfolio');
-  const link = page.locator('#portfolio a').filter({hasText: 'andrewmalvani.com'});
+  const link = page.getByRole('link', {name: /Site architecture/});
   const href = await link.getAttribute('href');
   expect(href).not.toBeNull();
   expect(href).not.toContain('[object Object]');
@@ -31,6 +31,18 @@ test('the architecture card opens a real local image', async ({page, request}) =
   await imagePage.waitForLoadState('load');
   expect(imagePage.url()).toBe(destination.toString());
   await expect(imagePage.locator('img')).toBeVisible();
+});
+
+test('portfolio keeps project destinations usable without publishing unapproved disclosures', async ({page}) => {
+  await page.goto('/#portfolio');
+  const sourceLink = page.getByRole('link', {name: /Source for this site/});
+  const rolefitLink = page.getByRole('link', {name: /Rolefit/});
+
+  await expect(sourceLink).toHaveAttribute('href', 'https://github.com/manwithaplandy/react-resume');
+  await expect(rolefitLink).toHaveAttribute('href', 'https://jobs.andrewmalvani.com');
+  await expect(sourceLink).toHaveAttribute('target', '_blank');
+  await expect(rolefitLink).toHaveAttribute('target', '_blank');
+  await expect(page.locator('#portfolio details')).toHaveCount(0);
 });
 
 test('homepage separates experience navigation from the PDF download', async ({page}) => {
