@@ -80,3 +80,45 @@ test('a failed producer in the actual deployment digest pipeline stops the step'
     rmSync(directory, {recursive: true, force: true});
   }
 });
+
+test('a schedule-only plan with unchanged code rejects push and requires manual attestation', () => {
+  const workflow = readFileSync('.github/workflows/main.yml', 'utf8');
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'e5-analytics-gate-'));
+  try {
+    const plan = path.join(directory, 'plan.json');
+    writeFileSync(plan, JSON.stringify({format_version: '1.2', resource_changes: [
+      {type: 'aws_lambda_function', name: 'stats_aggregator', change: {actions: ['no-op']}},
+      {type: 'aws_cloudwatch_event_rule', name: 'stats_aggregator_daily', change: {
+        actions: ['update'], before: {state: 'DISABLED'}, after: {state: 'ENABLED'},
+      }},
+    ]}));
+    const classified = spawnSync(process.execPath, [path.resolve('scripts/verify_public_stats_reader.mjs'), '--plan', plan], {
+      cwd: directory,
+      encoding: 'utf8',
+    });
+    assert.equal(classified.status, 0, classified.stderr);
+    const outputs = Object.fromEntries(classified.stdout.trim().split('\n').map(line => line.split('=')));
+    assert.equal(outputs.requires_reader, 'false');
+
+    const script = path.join(directory, 'gate.sh');
+    writeFileSync(script, runStep(workflow, 'Require approved analytics migration boundary'));
+    const [shell, args] = githubRunShell(workflow, script);
+    const runGate = env => spawnSync(shell, args, {
+      cwd: directory,
+      env: {
+        PATH: '/usr/bin:/bin',
+        ANALYTICS_PLAN_CHANGE: outputs.analytics_change,
+        ANALYTICS_CODE_CHANGE: 'false',
+        ...env,
+      },
+      encoding: 'utf8',
+    });
+    const push = runGate({EVENT_NAME: 'push', ANALYTICS_RELEASE_APPROVED: '', ANALYTICS_RELEASE_RECORD: ''});
+    assert.notEqual(push.status, 0, 'Schedule admission reopened on push without attestation');
+    assert.match(push.stdout, /no-writer window and durable quiesced backup/);
+    const manual = runGate({EVENT_NAME: 'workflow_dispatch', ANALYTICS_RELEASE_APPROVED: 'true', ANALYTICS_RELEASE_RECORD: 'release-2026-09-08'});
+    assert.equal(manual.status, 0, manual.stdout + manual.stderr);
+  } finally {
+    rmSync(directory, {recursive: true, force: true});
+  }
+});

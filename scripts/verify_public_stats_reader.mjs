@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
+import {isDeepStrictEqual} from 'node:util';
 import {fileURLToPath} from 'node:url';
 
 import {chromium, expect} from '@playwright/test';
@@ -10,26 +11,67 @@ import {chromium, expect} from '@playwright/test';
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const fixtureDirectory = fileURLToPath(new URL('../tests/fixtures/', import.meta.url));
 const MAX_BYTES = 4 * 1024 * 1024;
+const PLAN_ACTIONS = new Set(['no-op', 'create', 'read', 'update', 'delete']);
+const ANALYTICS_RESOURCES = new Set([
+  'aws_cloudwatch_event_rule.stats_aggregator_daily',
+  'aws_cloudwatch_event_target.stats_aggregator_daily',
+  'aws_cloudwatch_log_group.stats_aggregator',
+  'aws_cloudwatch_metric_alarm.stats_aggregator_errors',
+  'aws_dynamodb_table.data_table',
+  'aws_iam_policy.stats_aggregator_access',
+  'aws_iam_role.stats_aggregator_exec',
+  'aws_iam_role_policy_attachment.stats_aggregator_access_attach',
+  'aws_iam_role_policy_attachment.stats_aggregator_basic_execution',
+  'aws_lambda_function.stats_aggregator',
+  'aws_lambda_permission.stats_aggregator_events',
+  'aws_s3_bucket.log_bucket',
+  'aws_s3_bucket_lifecycle_configuration.log_bucket_lifecycle',
+  'aws_s3_bucket_ownership_controls.example',
+  'aws_s3_bucket_policy.allow_cloudfront_logs',
+  'aws_s3_bucket_versioning.log_bucket_versioning',
+  'aws_s3_bucket_versioning.website_versioning',
+]);
+const WEBSITE_BUCKET = 'aws_s3_bucket.website';
+const DISTRIBUTION = 'aws_cloudfront_distribution.website_distribution';
+
+function hasUnknownLeaf(value) {
+  if (value === true) return true;
+  if (!value || typeof value !== 'object') return false;
+  return Object.values(value).some(hasUnknownLeaf);
+}
+
+function isAnalyticsBoundaryChange(resource, actions) {
+  const key = `${resource.type}.${resource.name}`;
+  if (ANALYTICS_RESOURCES.has(key)) return actions.some(action => action !== 'no-op');
+  if (key === WEBSITE_BUCKET) return actions.includes('create') || actions.includes('delete');
+  if (key !== DISTRIBUTION) return false;
+
+  const before = resource.change?.before?.logging_config ?? null;
+  const after = resource.change?.after?.logging_config ?? null;
+  const unknown = resource.change?.after_unknown?.logging_config;
+  return !isDeepStrictEqual(before, after) || hasUnknownLeaf(unknown);
+}
 
 function analyticsActions(plan) {
   assert.ok(plan && /^1\./.test(plan.format_version) && Array.isArray(plan.resource_changes), 'Unrecognized Terraform plan; inspect before apply');
   const changes = [];
   for (const resource of plan.resource_changes) {
     assert.ok(resource && typeof resource.type === 'string' && typeof resource.name === 'string', 'Unrecognized resource in Terraform plan');
-    if (resource.type !== 'aws_lambda_function' || resource.name !== 'stats_aggregator') continue;
+    const key = `${resource.type}.${resource.name}`;
+    if (!ANALYTICS_RESOURCES.has(key) && key !== WEBSITE_BUCKET && key !== DISTRIBUTION) continue;
     const actions = resource.change?.actions;
-    assert.ok(Array.isArray(actions) && actions.length > 0 && actions.every(action => ['no-op', 'create', 'read', 'update', 'delete'].includes(action)), 'Unrecognized producer plan actions');
-    changes.push(actions);
+    assert.ok(Array.isArray(actions) && actions.length > 0 && actions.every(action => PLAN_ACTIONS.has(action)), 'Unrecognized producer plan actions');
+    changes.push({key, actions, analyticsBoundary: isAnalyticsBoundaryChange(resource, actions)});
   }
   return changes;
 }
 
 export function requiresReaderBeforeApply(plan) {
-  return analyticsActions(plan).some(actions => actions.includes('create'));
+  return analyticsActions(plan).some(change => change.key === 'aws_lambda_function.stats_aggregator' && change.actions.includes('create'));
 }
 
 export function analyticsPlanChange(plan) {
-  return analyticsActions(plan).some(actions => actions.some(action => action !== 'no-op'));
+  return analyticsActions(plan).some(change => change.analyticsBoundary);
 }
 
 function releaseOrigin(value, allowLocal) {

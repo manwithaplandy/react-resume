@@ -87,3 +87,72 @@ test('analytics plan changes are identified for the migration approval gate', ()
   assert.equal(analyticsPlanChange({format_version: '1.2', resource_changes: []}), false);
   assert.throws(() => analyticsPlanChange(plan(['unexpected'])), /actions/);
 });
+
+test('schedule-only admission changes require migration approval without bootstrap reader proof', () => {
+  const plan = {format_version: '1.2', resource_changes: [
+    {type: 'aws_lambda_function', name: 'stats_aggregator', change: {actions: ['no-op']}},
+    {type: 'aws_cloudwatch_event_rule', name: 'stats_aggregator_daily', change: {
+      actions: ['update'], before: {state: 'DISABLED'}, after: {state: 'ENABLED'},
+    }},
+  ]};
+  assert.equal(analyticsPlanChange(plan), true);
+  assert.equal(requiresReaderBeforeApply(plan), false);
+});
+
+test('analytics dependencies and recoverable website storage require migration approval', () => {
+  const plan = (type, name, actions = ['update']) => ({format_version: '1.2', resource_changes: [
+    {type, name, change: {actions}},
+  ]});
+  const dedicatedResources = [
+    ['aws_cloudwatch_event_rule', 'stats_aggregator_daily'],
+    ['aws_cloudwatch_event_target', 'stats_aggregator_daily'],
+    ['aws_cloudwatch_log_group', 'stats_aggregator'],
+    ['aws_cloudwatch_metric_alarm', 'stats_aggregator_errors'],
+    ['aws_dynamodb_table', 'data_table'],
+    ['aws_iam_policy', 'stats_aggregator_access'],
+    ['aws_iam_role', 'stats_aggregator_exec'],
+    ['aws_iam_role_policy_attachment', 'stats_aggregator_access_attach'],
+    ['aws_iam_role_policy_attachment', 'stats_aggregator_basic_execution'],
+    ['aws_lambda_function', 'stats_aggregator'],
+    ['aws_lambda_permission', 'stats_aggregator_events'],
+    ['aws_s3_bucket', 'log_bucket'],
+    ['aws_s3_bucket_lifecycle_configuration', 'log_bucket_lifecycle'],
+    ['aws_s3_bucket_ownership_controls', 'example'],
+    ['aws_s3_bucket_policy', 'allow_cloudfront_logs'],
+    ['aws_s3_bucket_versioning', 'log_bucket_versioning'],
+    ['aws_s3_bucket_versioning', 'website_versioning'],
+  ];
+  for (const [type, name] of dedicatedResources) {
+    assert.equal(analyticsPlanChange(plan(type, name)), true, `${type}.${name} escaped the analytics boundary`);
+  }
+  assert.equal(analyticsPlanChange(plan('aws_s3_bucket', 'website', ['delete', 'create'])), true);
+  assert.equal(analyticsPlanChange(plan('aws_s3_bucket', 'website')), false);
+  assert.equal(analyticsPlanChange(plan('aws_s3_bucket_logging', 'website_logs')), false);
+  assert.equal(analyticsPlanChange(plan('aws_s3_bucket_logging', 'log_bucket_logs', ['delete'])), false);
+  assert.equal(analyticsPlanChange(plan('aws_lambda_function', 'form_submission')), false);
+  assert.equal(requiresReaderBeforeApply(plan('aws_dynamodb_table', 'data_table', ['create'])), false);
+});
+
+test('only CloudFront logging changes and real unknown logging leaves require approval', () => {
+  const distribution = ({before, after, afterUnknown}) => ({format_version: '1.2', resource_changes: [{
+    type: 'aws_cloudfront_distribution',
+    name: 'website_distribution',
+    change: {actions: ['update'], before, after, after_unknown: afterUnknown},
+  }]});
+  const logging = [{bucket: 'logs.s3.amazonaws.com', include_cookies: false, prefix: 'cloudfront-logs/'}];
+  assert.equal(analyticsPlanChange(distribution({
+    before: {logging_config: logging, default_cache_behavior: [{cache_policy_id: 'old'}]},
+    after: {logging_config: logging, default_cache_behavior: [{cache_policy_id: 'new'}]},
+    afterUnknown: {logging_config: [{}], default_cache_behavior: [{cache_policy_id: true}]},
+  })), false);
+  assert.equal(analyticsPlanChange(distribution({
+    before: {logging_config: logging},
+    after: {logging_config: [{...logging[0], prefix: 'new-prefix/'}]},
+    afterUnknown: {logging_config: [{}]},
+  })), true);
+  assert.equal(analyticsPlanChange(distribution({
+    before: {logging_config: logging},
+    after: {logging_config: logging},
+    afterUnknown: {logging_config: [{bucket: true}]},
+  })), true);
+});
