@@ -9,10 +9,11 @@ resource "aws_lambda_function" "stats_aggregator" {
   handler       = "lambda_function.lambda_handler"
   # python3.12 (not 3.13): the locked AWS provider (5.50.0) predates the 3.13
   # runtime enum. Bump both together when the provider is next upgraded.
-  runtime     = "python3.12"
-  role        = aws_iam_role.stats_aggregator_exec.arn
-  memory_size = 512
-  timeout     = 300
+  runtime                        = "python3.12"
+  role                           = aws_iam_role.stats_aggregator_exec.arn
+  memory_size                    = 512
+  timeout                        = 300
+  reserved_concurrent_executions = 1
 
   # Intentionally no source_code_hash: like formSubmission, the zip here only
   # bootstraps the function. CI pushes code updates via
@@ -44,6 +45,10 @@ data "archive_file" "stats_aggregator_function" {
   source {
     content  = file("${path.module}/../stats_aggregator/payload.py")
     filename = "payload.py"
+  }
+  source {
+    content  = file("${path.module}/../stats_aggregator/ledger.py")
+    filename = "ledger.py"
   }
 }
 
@@ -117,9 +122,11 @@ resource "aws_iam_policy" "stats_aggregator_access" {
           "dynamodb:PutItem",
           "dynamodb:UpdateItem",
           "dynamodb:Query",
+          # Transactions use the existing PutItem/UpdateItem permissions; there
+          # is no separate TransactWriteItems IAM action.
           # Scan is required to collect the page#/referrer#/cf#daily# item
-          # families for rendering stats.json (hash-key-only table; the item
-          # count is tiny).
+          # families for rendering stats.json. Filtering excludes ledger rows
+          # from response memory, but scan read cost still grows with the table.
           "dynamodb:Scan",
         ]
         Resource = aws_dynamodb_table.data_table.arn

@@ -108,16 +108,12 @@ class SourceFailureTests(unittest.TestCase):
         self.assertEqual(result['sources']['cloudfront']['since'], '2026-09-01')
         self.assertEqual(self.ddb.items['cf#daily#2026-09-07']['uniques'], {'N': '0'})
 
-    def test_cloudfront_failure_does_not_invent_its_success_from_cloudflare(self):
-        self.http.side_effect = None
-        self.http.return_value = Response(api_result([api_day('2026-09-07')]))
+    def test_cloudfront_failure_preserves_prior_publication_and_does_not_query_cloudflare(self):
         with patch.object(self.handler, '_ingest_cloudfront_logs', side_effect=OSError('synthetic')):
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(OSError):
                 self.handler.lambda_handler({}, None)
-        result = self.s3.published[0]
-        self.assertEqual(result['sources']['cloudfront']['status'], 'stale')
-        self.assertIsNone(result['sources']['cloudfront']['lastSuccessfulUpdate'])
-        self.assertEqual(result['sources']['cloudflare']['lastSuccessfulUpdate'], '2026-09-08')
+        self.assertEqual(self.s3.published, [])
+        self.http.assert_not_called()
 
     def test_recovery_after_failure_keeps_actual_earliest_measurement(self):
         self.ddb.put_item(Item=cf_item('2026-09-02', 1, {'US': 7}))
@@ -260,14 +256,11 @@ class SourceFailureTests(unittest.TestCase):
                 self.assertEqual(result['countries'], [])
                 self.assertEqual(result['sources']['cloudflare']['status'], 'unavailable')
 
-    def test_truncated_and_object_error_passes_do_not_advance_cloudfront_success(self):
-        for outcome in [(0, True, False), (1, False, True)]:
-            with self.subTest(outcome=outcome):
-                self.s3.published.clear()
-                self.handler.CF_ZONE_ID = self.handler.CF_TOKEN_SSM_PARAM = ''
-                with patch.object(self.handler, '_ingest_cloudfront_logs', return_value=outcome):
-                    with self.assertRaises(RuntimeError):
-                        self.handler.lambda_handler({}, None)
-                source = self.s3.published[0]['sources']['cloudfront']
-                self.assertEqual(source['status'], 'stale')
-                self.assertIsNone(source['lastSuccessfulUpdate'])
+    def test_incomplete_cloudfront_pass_does_not_advance_any_source_or_publish(self):
+        with patch.object(self.handler, '_ingest_cloudfront_logs', side_effect=self.handler.IngestionIncomplete()):
+            result = self.handler.lambda_handler({}, None)
+        self.assertEqual(result, {'truncated': True})
+        self.assertEqual(self.s3.published, [])
+        self.assertNotIn('source#cloudfront', self.ddb.items)
+        self.assertNotIn('source#cloudflare', self.ddb.items)
+        self.http.assert_not_called()

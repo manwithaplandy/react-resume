@@ -113,7 +113,7 @@ jobs:
       - name: Prepare Lambda bootstrap zips
         run: |
           (cd sns_publish_lambda && zip ../terraform/lambda_function.zip lambda_function.py)
-          (cd stats_aggregator && zip ../terraform/stats_aggregator.zip lambda_function.py payload.py)
+          (cd stats_aggregator && zip ../terraform/stats_aggregator.zip lambda_function.py payload.py ledger.py)
 
       - name: Terraform Apply
         run: terraform -chdir=terraform apply "plan/plan.tfplan"
@@ -161,7 +161,7 @@ jobs:
               package_files: lambda_function.py
             - dir: stats_aggregator
               function_var: STATS_AGGREGATOR_FUNCTION_NAME
-              package_files: lambda_function.py payload.py
+              package_files: lambda_function.py payload.py ledger.py
       steps:
       - name: Checkout
         uses: actions/checkout@v6
