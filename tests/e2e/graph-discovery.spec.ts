@@ -1,4 +1,5 @@
 import type {Page} from '@playwright/test';
+import {writeFile} from 'node:fs/promises';
 
 import {expect, test} from './fixtures';
 
@@ -196,3 +197,137 @@ test('a phone visitor can follow skill evidence across views and recover overvie
   await overview(page).click();
   await expect(page.getByRole('region', {name: 'Selected career item'})).toHaveCount(0);
 });
+
+for (const width of [1280, 390]) {
+  test(`canonical overview keeps informational labels readable at ${width}px`, async ({page}, testInfo) => {
+    await page.setViewportSize({width, height: 844});
+    await page.emulateMedia({reducedMotion: 'reduce'});
+    await page.addInitScript(() => {
+      type SpriteDraw = {height: number; fog: boolean; x: number; y: number};
+      const observed = window as unknown as {spriteDraws: SpriteDraw[]};
+      observed.spriteDraws = [];
+      const paints = window as unknown as {labelPaints: {foreground: string; background: string}[]};
+      paints.labelPaints = [];
+      const backgrounds = new WeakMap<HTMLCanvasElement, string>();
+      const latestPaints = new Map<HTMLCanvasElement, {foreground: string; background: string}>();
+      const fillRect = CanvasRenderingContext2D.prototype.fillRect;
+      CanvasRenderingContext2D.prototype.fillRect = function (x, y, width, height) {
+        if (x === 0 && y === 0 && width >= this.canvas.width && height >= this.canvas.height)
+          backgrounds.set(this.canvas, String(this.fillStyle));
+        fillRect.call(this, x, y, width, height);
+      };
+      const fillText = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text, x, y, maxWidth) {
+        const background = backgrounds.get(this.canvas);
+        if (background) {
+          latestPaints.set(this.canvas, {background, foreground: String(this.fillStyle)});
+          paints.labelPaints = [...latestPaints.values()];
+        }
+        fillText.call(this, text, x, y, maxWidth);
+      };
+      const prototype = WebGL2RenderingContext.prototype;
+      const programs = new WeakMap<WebGLProgram, {fog: boolean; matrices: Record<string, number[]>}>();
+      const locations = new WeakMap<WebGLUniformLocation, {program: WebGLProgram; name: string}>();
+      let current: WebGLProgram | null = null;
+      const getLocation = prototype.getUniformLocation;
+      prototype.getUniformLocation = function (program, name) {
+        const location = getLocation.call(this, program, name);
+        const sources = this.getAttachedShaders(program)?.map(shader => this.getShaderSource(shader) ?? '') ?? [];
+        if (sources.some(source => source.includes('uniform vec2 center;'))) {
+          if (!programs.has(program))
+            programs.set(program, {fog: sources.some(source => source.includes('#define USE_FOG')), matrices: {}});
+          if (location) locations.set(location, {program, name});
+        }
+        return location;
+      };
+      const matrix = prototype.uniformMatrix4fv;
+      prototype.uniformMatrix4fv = function (location, transpose, value) {
+        const uniform = location ? locations.get(location) : undefined;
+        if (uniform) programs.get(uniform.program)!.matrices[uniform.name] = Array.from(value);
+        matrix.call(this, location, transpose, value);
+      };
+      const use = prototype.useProgram;
+      prototype.useProgram = function (program) {
+        current = program;
+        use.call(this, program);
+      };
+      const draw = prototype.drawElements;
+      prototype.drawElements = function (mode, count, type, offset) {
+        const program = current ? programs.get(current) : undefined;
+        const {modelMatrix: model, modelViewMatrix: view, projectionMatrix: projection} = program?.matrices ?? {};
+        if (program && model && view && projection && observed.spriteDraws.length < 1000) {
+          // Sprite vertices take their size from the world matrix and their
+          // depth from model-view; this observes the real rendered projection.
+          const worldHeight = Math.hypot(model[4], model[5], model[6]);
+          observed.spriteDraws.push({
+            fog: program.fog,
+            height: (worldHeight * projection[5] * (this.canvas as HTMLCanvasElement).clientHeight) / (-view[14] * 2),
+            x: (((view[12] * projection[0]) / -view[14] + 1) * (this.canvas as HTMLCanvasElement).clientWidth) / 2,
+            y: ((1 - (view[13] * projection[5]) / -view[14]) * (this.canvas as HTMLCanvasElement).clientHeight) / 2,
+          });
+        }
+        draw.call(this, mode, count, type, offset);
+      };
+    });
+    await page.goto('/graph?view=3d');
+    await expect(page.locator('canvas')).toBeVisible();
+    await page.waitForTimeout(10500);
+    await overview(page).click();
+    await page.waitForTimeout(500);
+    const draws = await page.evaluate(async () => {
+      const observed = window as unknown as {spriteDraws: {height: number; fog: boolean; x: number; y: number}[]};
+      observed.spriteDraws = [];
+      for (let frame = 0; frame < 3; frame++) await new Promise(requestAnimationFrame);
+      return observed.spriteDraws;
+    });
+    await testInfo.attach('rendered-overview-labels', {body: JSON.stringify(draws), contentType: 'application/json'});
+    await page.locator('canvas').screenshot({path: testInfo.outputPath(`overview-readable-${width}.png`)});
+    expect(draws.length).toBeGreaterThan(0);
+    expect(Math.min(...draws.map(draw => draw.height))).toBeGreaterThanOrEqual(12);
+    expect(draws.every(draw => !draw.fog)).toBe(true);
+    const contrast = await page
+      .getByRole('application')
+      .locator('div[style*="radial-gradient"]')
+      .evaluate(element => {
+        const gradient = getComputedStyle(element).backgroundImage;
+        const stops = [...gradient.matchAll(/rgba\((\d+), (\d+), (\d+), ([\d.]+)\)/g)];
+        const darkest = stops.reduce((a, b) => (Number(a[4]) > Number(b[4]) ? a : b));
+        const alpha = Number(darkest[4]);
+        const luminance = (hex: string) => {
+          const rgb = hex.match(/[\da-f]{2}/gi)!.map((value, index) => {
+            const composite = (parseInt(value, 16) * (1 - alpha) + Number(darkest[index + 1]) * alpha) / 255;
+            return composite <= 0.04045 ? composite / 12.92 : ((composite + 0.055) / 1.055) ** 2.4;
+          });
+          return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+        };
+        const paints = (window as unknown as {labelPaints: {foreground: string; background: string}[]}).labelPaints;
+        return {
+          count: paints.length,
+          gradient,
+          minimum: Math.min(
+            ...paints.map(paint => (luminance(paint.foreground) + 0.05) / (luminance(paint.background) + 0.05)),
+          ),
+        };
+      });
+    await testInfo.attach('composited-label-contrast', {
+      body: JSON.stringify(contrast),
+      contentType: 'application/json',
+    });
+    await writeFile(testInfo.outputPath('label-rendering.json'), JSON.stringify({contrast, draws}, null, 2));
+    expect(contrast.count).toBeGreaterThan(0);
+    expect(contrast.minimum).toBeGreaterThanOrEqual(4.5);
+    // Hovering an overview anchor must not collapse it back to its small
+    // world-space size. The preview confirms that the real raycast hit it.
+    const box = (await page.locator('canvas').boundingBox())!;
+    await page.mouse.move(box.x + draws[0].x, box.y + draws[0].y + draws[0].height / 2 + 10);
+    await expect(page.getByRole('application').locator('p.text-sm.font-semibold')).toBeVisible();
+    const hovered = await page.evaluate(async () => {
+      const observed = window as unknown as {spriteDraws: {height: number}[]};
+      observed.spriteDraws = [];
+      for (let frame = 0; frame < 3; frame++) await new Promise(requestAnimationFrame);
+      return observed.spriteDraws;
+    });
+    expect(hovered.length).toBeGreaterThan(0);
+    expect(Math.min(...hovered.map(draw => draw.height))).toBeGreaterThanOrEqual(12);
+  });
+}

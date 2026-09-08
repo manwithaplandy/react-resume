@@ -61,6 +61,10 @@ interface NodeVisual {
   baseColor: Color;
   baseOpacity: number;
   kind: GraphNodeKind;
+  overviewLabeled: boolean;
+  baseLabelScale: Vector3;
+  overviewLabelScale?: Vector3;
+  overviewLabelY?: number;
 }
 
 const NODE_RADIUS: Record<GraphNodeKind, number> = {
@@ -85,7 +89,10 @@ const NODE_COLOR: Record<GraphNodeKind, string> = {
   tool: '#979ea8',
 };
 
-const ALWAYS_LABELED: ReadonlySet<GraphNodeKind> = new Set<GraphNodeKind>(['job', 'skillGroup']);
+// A few readable anchors orient the overview; every other identity remains
+// available on hover/selection and through the direct search.
+const OVERVIEW_TEXT_PIXELS = 14;
+const isOverviewLabeled = (node: FGNode): boolean => node.kind === 'skillGroup' || node.id === initialFocusId;
 
 const LINK_DISTANCE: Record<GraphEdgeKind, number> = {
   'earned-via': 45,
@@ -292,19 +299,36 @@ const buildNodeVisual = (node: FGNode): {visual: NodeVisual; object: Group} => {
     node.kind === 'skillGroup' ? 6 : node.kind === 'job' ? 5.5 : 4,
     '#d4d4d4',
   );
+  // Information keeps its contrast independently of the atmospheric geometry.
+  label.backgroundColor = '#171717';
+  label.padding = label.textHeight * 0.15;
+  label.material.fog = false;
+  label.material.toneMapped = false;
+  label.material.depthTest = false;
   label.material.depthWrite = false;
+  label.renderOrder = 1;
   label.position.y = radius + 7;
-  label.visible = ALWAYS_LABELED.has(node.kind);
+  label.visible = isOverviewLabeled(node);
 
   const group = new Group();
   group.add(mesh, halo, pick, label);
   return {
     object: group,
-    visual: {baseColor, baseOpacity, group, haloMaterial, kind: node.kind, label, material},
+    visual: {
+      baseColor,
+      baseLabelScale: label.scale.clone(),
+      baseOpacity,
+      group,
+      haloMaterial,
+      kind: node.kind,
+      label,
+      material,
+      overviewLabeled: isOverviewLabeled(node),
+    },
   };
 };
 
-const applyVisualState = (visual: NodeVisual, state: NodeVisualState): void => {
+const applyVisualState = (visual: NodeVisual, state: NodeVisualState, overview = false): void => {
   const {material, haloMaterial, label, baseColor, baseOpacity, kind} = visual;
   // Emphasized states stay fully opaque except for the translucent skill
   // groups, which fade to the given fraction instead.
@@ -350,10 +374,12 @@ const applyVisualState = (visual: NodeVisual, state: NodeVisualState): void => {
     case 'normal':
       material.opacity = baseOpacity;
       haloMaterial.opacity = 0;
-      label.visible = ALWAYS_LABELED.has(kind);
+      label.visible = visual.overviewLabeled;
       label.color = '#d4d4d4';
       break;
   }
+  label.scale.copy(overview && visual.overviewLabelScale ? visual.overviewLabelScale : visual.baseLabelScale);
+  label.position.y = overview && visual.overviewLabelY !== undefined ? visual.overviewLabelY : NODE_RADIUS[kind] + 7;
   visual.haloMaterial.visible = haloMaterial.opacity > 0;
 };
 
@@ -639,6 +665,7 @@ const ResumeGraphCanvas: FC<{
       applyVisualState(
         visual,
         resolveVisualState(id, state.focusedId, state.highlightedId, hoveredId, focusNeighbors.has(id)),
+        state.focusedId === null,
       );
     }
   }, [state.focusedId, state.highlightedId, hoveredId, focusNeighbors, ready, canvasKey]);
@@ -709,28 +736,43 @@ const ResumeGraphCanvas: FC<{
         cameraFocusRef.current = state.focusedId;
         hasFlownRef.current = true;
       } else {
-        // Canonical front view fits actual laid-out nodes and the restrained
-        // overview labels to this stage's measured aspect ratio.
+        // Reserve readable screen-space label margins, then fit all geometry.
+        // Sizing labels only in world units makes a whole-graph fit unreadable.
         const min = new Vector3(Infinity, Infinity, Infinity);
         const max = new Vector3(-Infinity, -Infinity, -Infinity);
+        let labelWidth = 0;
+        let labelHeight = 0;
         for (const item of nodes) {
           if (!hasLayoutCoords(item)) continue;
           const visual = objectsRef.current.get(String(item.id));
-          const label = ALWAYS_LABELED.has(item.kind) ? visual?.label : undefined;
           const radius = NODE_RADIUS[item.kind];
-          const halfWidth = Math.max(radius, (label?.scale.x ?? 0) / 2);
-          min.min(new Vector3(item.x - halfWidth, item.y - radius, item.z - radius));
-          max.max(
-            new Vector3(
-              item.x + halfWidth,
-              item.y + Math.max(radius, label ? label.position.y + label.scale.y / 2 : 0),
-              item.z + radius,
-            ),
-          );
+          min.min(new Vector3(item.x - radius, item.y - radius, item.z - radius));
+          max.max(new Vector3(item.x + radius, item.y + radius, item.z + radius));
+          if (visual?.overviewLabeled) {
+            const pixelsPerUnit = OVERVIEW_TEXT_PIXELS / visual.label.textHeight;
+            labelWidth = Math.max(labelWidth, visual.baseLabelScale.x * pixelsPerUnit);
+            labelHeight = Math.max(labelHeight, visual.baseLabelScale.y * pixelsPerUnit);
+          }
         }
         const center = min.clone().add(max).multiplyScalar(0.5);
+        const usableWidth = Math.max(1, size.width - labelWidth - 24);
+        const usableHeight = Math.max(1, size.height - (labelHeight + 8) * 2);
         const distance =
-          Math.max((max.x - min.x) / (2 * horizontalTangent), (max.y - min.y) / (2 * verticalTangent)) * 1.15;
+          Math.max(
+            ((max.x - min.x) * size.width) / (2 * horizontalTangent * usableWidth),
+            ((max.y - min.y) * size.height) / (2 * verticalTangent * usableHeight),
+          ) * 1.05;
+        const cameraZ = max.z + distance;
+        for (const item of nodes) {
+          const visual = objectsRef.current.get(String(item.id));
+          if (!hasLayoutCoords(item) || !visual?.overviewLabeled) continue;
+          const unitsPerPixel = ((cameraZ - item.z) * 2 * verticalTangent) / size.height;
+          visual.overviewLabelScale = visual.baseLabelScale
+            .clone()
+            .multiplyScalar((OVERVIEW_TEXT_PIXELS * unitsPerPixel) / visual.label.textHeight);
+          visual.overviewLabelY = NODE_RADIUS[item.kind] + visual.overviewLabelScale.y / 2 + 4 * unitsPerPixel;
+          applyVisualState(visual, resolveVisualState(String(item.id), null, null, hoveredIdRef.current, false), true);
+        }
         controls.autoRotate = false;
         // Trackball orbit retains both roll (camera.up) and inertial deltas.
         // Consume those deltas before framing, or the next controls update
@@ -740,7 +782,7 @@ const ResumeGraphCanvas: FC<{
         controls.update();
         controls.dynamicDampingFactor = damping;
         camera.up.set(0, 1, 0);
-        fg.cameraPosition({x: center.x, y: center.y, z: max.z + distance}, center, duration);
+        fg.cameraPosition({x: center.x, y: center.y, z: cameraZ}, center, duration);
         hasFlownRef.current = false;
         cameraFocusRef.current = null;
       }
@@ -806,6 +848,7 @@ const ResumeGraphCanvas: FC<{
         hoveredIdRef.current,
         focusNeighborsRef.current.has(id),
       ),
+      current.focusedId === null,
     );
     return object;
   }, []);
@@ -957,7 +1000,9 @@ const ResumeGraphCanvas: FC<{
 });
 
 const vignetteStyle = {
-  background: 'radial-gradient(ellipse at center, rgba(13,13,13,0) 55%, rgba(13,13,13,0.55) 100%)',
+  // The overlay also composites over labels: cap it so even orange text on
+  // its opaque backing retains >4.5:1 contrast at the darkest edge.
+  background: 'radial-gradient(ellipse at center, rgba(13,13,13,0) 55%, rgba(13,13,13,0.25) 100%)',
 } as const;
 
 ResumeGraphCanvas.displayName = 'ResumeGraphCanvas';
