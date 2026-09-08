@@ -74,6 +74,32 @@ export interface StatsDailyPoint {
   views: number;
 }
 
+export interface StatsSource {
+  status: 'current' | 'stale' | 'unavailable' | 'unknown';
+  since: string | null;
+  through: string | null;
+  lastSuccessfulUpdate: string | null;
+  scope: 'site-document-requests' | 'zone-requests';
+}
+
+export interface StatsObservation {
+  date: string;
+  views: number | null;
+  status: 'observed' | 'provisional' | 'missing';
+}
+
+export interface StatsViewModel {
+  generatedOn: string;
+  documentRequests: number | null;
+  dailyUniqueVisits: number | null;
+  documentSource: StatsSource;
+  edgeSource: StatsSource;
+  observations: StatsObservation[];
+  topPages: StatsDatum[];
+  topReferrers: StatsDatum[];
+  countries: StatsDatum[];
+}
+
 export interface StatsPayload {
   totalViews: number;
   lastUpdated: string;
