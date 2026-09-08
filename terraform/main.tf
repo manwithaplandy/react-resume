@@ -225,6 +225,33 @@ resource "aws_cloudfront_origin_access_control" "oac" {
   signing_protocol                  = "sigv4"
 }
 
+# Origin metadata sets browser TTL separately from shared TTL. MinTTL stays zero
+# in BOTH policies: a long immutable minimum would also extend missing-asset errors.
+resource "aws_cloudfront_cache_policy" "site" {
+  for_each = {
+    stable    = 300
+    immutable = 31536000
+  }
+  name        = "${random_pet.bucket_name.id}-${each.key}"
+  min_ttl     = 0
+  default_ttl = each.value
+  max_ttl     = each.value
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    enable_accept_encoding_brotli = true
+    enable_accept_encoding_gzip   = true
+    cookies_config {
+      cookie_behavior = "none"
+    }
+    headers_config {
+      header_behavior = "none"
+    }
+    query_strings_config {
+      query_string_behavior = "none"
+    }
+  }
+}
+
 # CloudFront distribution for HTTPS
 resource "aws_cloudfront_distribution" "website_distribution" {
   depends_on = [aws_s3_bucket_policy.allow_cloudfront_logs]
@@ -290,9 +317,10 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     allowed_methods            = ["GET", "HEAD", "OPTIONS"]
     cached_methods             = ["GET", "HEAD"]
     target_origin_id           = "S3-${aws_s3_bucket.website.id}"
-    cache_policy_id            = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    cache_policy_id            = aws_cloudfront_cache_policy.site["stable"].id
     origin_request_policy_id   = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
+    compress                   = true
 
     # Keep allow-all until the account's Cloudflare SSL mode and proxy status are
     # authenticated and a coordinated rollout has verified HTTPS to this origin.
@@ -300,13 +328,27 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     # Tightening this setting alone can create a loop if the upstream still uses
     # HTTP; docs/operations/delivery.md records the required branches and rollback.
     viewer_protocol_policy = "allow-all"
-    # min_ttl                = 0
-    # default_ttl            = 3600
-    # max_ttl                = 86400
 
     # OAC-to-S3 origins do not resolve index documents, so extensionless
     # paths like /stats would 404 (only default_root_object covers "/").
     # Rewrite them to their .html objects at the viewer-request edge.
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.rewrite_extensionless.arn
+    }
+  }
+
+  ordered_cache_behavior {
+    path_pattern               = "_next/static/*"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = "S3-${aws_s3_bucket.website.id}"
+    cache_policy_id            = aws_cloudfront_cache_policy.site["immutable"].id
+    origin_request_policy_id   = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
+    compress                   = true
+    # Same working viewer policy and route normalization as the default behavior.
+    viewer_protocol_policy = "allow-all"
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.rewrite_extensionless.arn

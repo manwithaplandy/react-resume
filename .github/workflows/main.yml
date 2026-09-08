@@ -112,19 +112,6 @@ jobs:
           name: out
           path: candidate-out
 
-      - name: Verify candidate recovery document and assets
-        run: |
-          test -s candidate-out/404.html
-          node <<'NODE'
-          const {existsSync, readFileSync} = require('node:fs');
-          const html = readFileSync('candidate-out/404.html', 'utf8');
-          const references = [...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"?#]+)(?:[?#][^"]*)?"/g)]
-            .map(match => match[1]);
-          if (references.length === 0) throw new Error('404.html has no candidate static references');
-          const missing = references.filter(reference => !existsSync(`candidate-out${reference}`));
-          if (missing.length > 0) throw new Error(`Missing 404 assets: ${missing.join(', ')}`);
-          NODE
-
       # First creation/replacement embeds producer code in Terraform apply,
       # so it needs public reader proof BEFORE apply, not just code-update.
       - name: Setup Node for bootstrap gate
@@ -135,6 +122,18 @@ jobs:
 
       - name: Install release gate dependencies
         run: yarn install --frozen-lockfile
+
+      - name: Verify candidate manifest and recovery references
+        run: |
+          node scripts/publish_static_site.mjs manifest --artifact-dir candidate-out \
+            --manifest candidate-manifest.json
+
+      - name: Preserve candidate cache manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: candidate-cache-manifest
+          path: candidate-manifest.json
+          if-no-files-found: error
 
       - name: Identify analytics bootstrap prerequisite
         id: analytics-bootstrap
@@ -179,10 +178,8 @@ jobs:
       # No objects are deleted and stats.json is not touched.
       - name: Stage checked recovery page before CloudFront error policy
         run: |
-          aws s3 cp candidate-out/_next/static/ "s3://$S3_BUCKET_NAME/_next/static/" \
-            --recursive --only-show-errors
-          aws s3 cp candidate-out/404.html "s3://$S3_BUCKET_NAME/404.html" \
-            --content-type "text/html; charset=utf-8" --only-show-errors
+          node scripts/publish_static_site.mjs upload --artifact-dir candidate-out \
+            --manifest candidate-manifest.json --bucket "$S3_BUCKET_NAME" --phase recovery
         env:
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
 
@@ -210,10 +207,24 @@ jobs:
             name: out
             path: out
 
-        # stats.json is produced by the statsAggregator Lambda, not the build —
-        # exclude it so --delete doesn't wipe the data file on every deploy.
-        - name: Sync S3 bucket
-          run: aws s3 sync out/ s3://$S3_BUCKET_NAME --delete --exclude "stats.json"
+        - name: Setup publication runtime
+          uses: actions/setup-node@v6
+          with:
+            node-version: '22'
+
+        - name: Download checked candidate cache manifest
+          uses: actions/download-artifact@v8
+          with:
+            name: candidate-cache-manifest
+            path: release-manifest
+
+        # Refresh every known candidate key even if its bytes are unchanged.
+        # Hashed assets precede stable files; no delete/list operation exists.
+        # stats.json belongs to the Lambda and is always excluded by the manifest.
+        - name: Publish verified candidate and cache metadata
+          run: |
+            node scripts/publish_static_site.mjs upload --artifact-dir out \
+              --manifest release-manifest/candidate-manifest.json --bucket "$S3_BUCKET_NAME" --phase all
           env:
             S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
 

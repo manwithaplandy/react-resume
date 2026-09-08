@@ -23,7 +23,7 @@ CloudFront maps origin 403 and 404 responses to the checked document:
 | 403 | `/404.html` | 404 | 10 seconds |
 | 404 | `/404.html` | 404 | 10 seconds |
 
-This translation applies to any origin 403 or 404 response, including permission failures. Successful pages, static extension paths, resource identities, origin selection, and the existing cache behavior remain unchanged. The known-asset post-release check guards against hiding a broader origin-permission failure behind the recovery page.
+This translation applies to any origin 403 or 404 response, including permission failures. The E1 error mapping leaves successful route selection, static extension paths, resource identities and origin selection unchanged; E4 separately prepares the cache policies below. The known-asset post-release check guards against hiding a broader origin-permission failure behind the recovery page.
 
 ## Access-log self-targeting
 
@@ -91,7 +91,7 @@ F19 remains open until authenticated Cloudflare mode/proxy evidence, the authori
 
 Use one reviewed candidate `out` artifact and one consolidated state-backed Terraform plan. The plan must show the intended edge-function source and the two custom error responses for this task, alongside only other independently reviewed release changes. A real state-backed plan has not been run for this task; the controller owns that consolidated review with the prepared private inputs.
 
-The workflow downloads the same candidate artifact produced by the plan job. Before Terraform apply it checks that `404.html` references candidate files that exist under `_next/static`. It uploads all candidate `_next/static` objects without deletion, then uploads `404.html` last. This order retains old hashed assets and makes the complete recovery page available before CloudFront can enable the error mapping. It does not upload or delete `stats.json`, and the later ordinary site sync still excludes that producer-owned object.
+The workflow downloads the same candidate artifact produced by the plan job. Before Terraform apply it creates a bounded candidate manifest containing file digests, lengths, MIME types, cache metadata and verified HTML/CSS static references. It uploads all candidate `_next/static` objects without deletion, then uploads `404.html` last. This order retains old hashed assets and makes the complete recovery page available before CloudFront can enable the error mapping. It does not upload or delete `stats.json`, and the later full manifest publication also excludes that producer-owned object.
 
 If the bucket does not exist, the pre-apply upload stops the release. Use the separately reviewed bootstrap procedure; do not create a temporary Terraform address or enable an error mapping whose recovery document is absent. The same stop applies if the candidate recovery document or any referenced candidate static asset is missing.
 
@@ -101,7 +101,7 @@ The analytics release gates remain load-bearing:
 - Ordinary analytics code updates remain downstream of website publication, CloudFront invalidation, and the public reader check.
 - Follow the no-writer, durable-backup, and historical-preservation prerequisites in [analytics operations](./analytics.md) for an analytics cutover. Staging recovery assets does not satisfy or bypass them.
 
-After apply, sync the complete same candidate export with the existing `stats.json` exclusion, then invalidate the distribution through the reviewed workflow. E4 and E5 may consolidate cache metadata and checked-artifact provenance later; they must retain this no-missing-document order and both analytics reader gates.
+After apply, publish the complete same candidate manifest with `stats.json` excluded, then invalidate the distribution through the reviewed workflow. Both phases verify the manifest against the actual downloaded files before their first upload. E5 must retain this no-missing-document order and both analytics reader gates when consolidating checked-artifact provenance.
 
 ## Post-release verification
 
@@ -114,3 +114,46 @@ No production rollout or CloudFront invocation was performed during E1–E3 impl
 5. Record response status, redirect location, cache/error-cache headers, checked commit and candidate artifact identity. Do not mark F15's live behavior closed until these public checks pass.
 
 If the recovery document or its assets fail, stop further rollout, preserve the candidate and plan evidence, and restore a previously complete site artifact through the reviewed release path. Do not remove buckets, rename Terraform resources, or use the custom 404 to mask an origin-access problem.
+
+
+## Prepared cache contract — E4
+
+This contract is implemented locally and has not been activated or publicly verified. Ruling19 permits preparing AWS policies and artifact metadata while Cloudflare settings remain unknown; it does not authorize deployment or establish end-to-end freshness. Preserve the working `allow-all` viewer policy and the authenticated account/release gates above.
+
+| Object class | Origin `Cache-Control` | CloudFront default / maximum TTL | Minimum TTL |
+| --- | --- | --- | --- |
+| HTML, PDF and other stable candidate addresses | `public, max-age=60, s-maxage=300` | 300 / 300 seconds | 0 |
+| Content-hashed `/_next/static/*`, including build-specific manifests, CSS and fonts | `public, max-age=31536000, s-maxage=31536000, immutable` | 31,536,000 / 31,536,000 seconds | 0 |
+| Independently published `stats.json` | `public, max-age=60, s-maxage=300` | Same stable policy, 300 / 300 seconds | 0 |
+
+Two new CloudFront cache policies replace CachingDisabled for the existing default behavior and add the hashed-path behavior, both targeting the same S3 origin/OAC. Gzip/Brotli cache variants and automatic compression are enabled for eligible responses; compression is not promised for every MIME type/size or already compressed object. Neither policy keys on cookies, arbitrary viewer headers or query strings. The existing CORS origin-request policy is retained; normalized compression negotiation is the deliberate cache variation. Query values remain in the browser URL for client navigation and in E1 slash redirects; excluding them from static origin/cache selection does not clear the URL.
+
+Both cache minima remain zero so explicit origin cache restrictions can work and a one-year minimum cannot prolong missing hashed-asset errors. E1's origin 403/404 mappings retain viewer status 404 and error minimum 10 seconds. Error headers can independently affect CloudFront error duration; verify missing stable and hashed paths after release, not merely successful assets. See [AWS error-cache behavior](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/custom-error-pages-expiration.html). The local policy does not promise Cloudflare's error caching or override its unknown rules.
+
+### Candidate ownership and metadata refresh
+
+`scripts/publish_static_site.mjs` builds a version 1 manifest from the downloaded export. It records every frontend-owned key's SHA-256, length, MIME type and class-specific cache control, plus resolved local HTML/CSS static references. It rejects missing/empty required pages, missing referenced hashes, symlinks, unsafe paths and oversized candidates. Bounds are 10,000 directory entries, 64 MiB per file, 256 MiB total bytes, 50,000 static references, 1,024-character ASCII keys and an 8 MiB manifest. These exceed the checked current candidate (54 files / 73 references); a future larger or differently named export needs a reviewed bounds/parser update rather than silently bypassing validation. The parser checks HTML src/href/srcset and CSS url references; the complete `_next/static` tree also carries dynamically loaded chunks. The manifest is a local candidate integrity record, not proof of a remote deployment or exhaustive JavaScript execution.
+
+The workflow saves `candidate-cache-manifest` as a same-run artifact. Before each publication phase the uploader regenerates and compares the complete manifest, including metadata and bytes, before the first write. Publication uses argument arrays to call `aws s3 cp` for each known key, unconditionally refreshing origin metadata even when bytes match. There is no remote listing, sync deletion, copy of unrelated keys, bucket-wide metadata rewrite or age-based garbage collection. The root `stats.json` key is excluded even if a frontend export accidentally contains a copy; only the producer publishes that key. Existing old hashes and other objects stay in place for open tabs and rollback. Retiring old hashes or stable pages requires a separate explicit, reference-aware removal decision; this uploader never infers deletion from absence in a candidate.
+
+The `recovery` phase uploads all candidate hashes first and 404.html last, before Terraform enables E1's error policy. The `all` phase independently uploads hashes before any stable file, including when run without an earlier recovery phase. Upload failure stops immediately; a partial stable phase is not atomic and must not be accepted as a complete release. The immutable candidate directory must remain unchanged during publication. Keep the reader gate after successful complete publication/invalidation; E5 owns the final build/test provenance and checked artifact reuse.
+
+Local manifest preparation is read-only with respect to cloud resources:
+
+```sh
+node scripts/publish_static_site.mjs manifest --artifact-dir out --manifest candidate-manifest.json
+node --test scripts/tests/static-publication.test.mjs
+.venv-stats/bin/python -m unittest discover -s tests/stats -p test_cache_metadata.py -v
+```
+
+The workflow's `upload` subcommand is a release action and was tested only through a local fake AWS executable. Both `--phase recovery` and `--phase all` require the checked manifest, candidate directory and explicit bucket. No production upload was performed. Lambda's only E4 behavior change is the stats cache header; existing aggregation, accepted Cloudflare checkpoint, active guard, durable proofs, concurrency and exact three-module archive membership remain unchanged. The recorded D4 archive from `99b0a4e` is now a historical review candidate: this producer-header change alters the handler/package bytes. E5 must generate/test/record the final archive and digest; do not deploy or cite the old archive as the current checked package.
+
+### Before accepting freshness in production
+
+The existing September 8 baseline used two ordinary unauthenticated GETs per object at 07:12:53–56 UTC with normal certificate verification and no cache-busting query. HTML lacked Cache-Control/Age and returned Cloudflare DYNAMIC/CloudFront Miss twice. Stats returned max-age=3600 and DYNAMIC/Miss twice. PDF and the actual referenced chunk returned max-age=14400, first Cloudflare MISS then HIT (Age 0); the cached origin X-Cache remained Miss and does not prove a second origin request. Full-body times 0.18–0.704 seconds are a small sample, not field performance evidence or a speedup claim. E4 reused `evidence/delivery-cache-before.json`; it performed no new public measurements.
+
+Before activation, inspect Cloudflare SSL/proxy settings plus applicable browser/edge cache rules and Browser Cache TTL, including Respect Existing Headers behavior. Prepare any needed coordinated account changes for approval. Save previous known-key metadata/cache settings with the checked manifest and final state-backed plan. Expected E4 plan scope is two new cache policies and in-place default/hashed behavior changes, including compression; no bucket/distribution replacement, origin/permission changes, retention changes or viewer-policy tightening.
+
+After approved upload/apply and compatible-reader-first producer rollout, verify repeat ordinary requests for HTML, PDF, actual candidate hashes and separately published stats on both hosts. Confirm content/MIME, browser/shared directives, available Age/cache-status headers and negotiated compression where eligible; test missing normal/hash paths and query-bearing client navigation too. Stats retains its previous metadata until an approved successful producer publication replaces it: frontend deployment must not rewrite it to fake completion. Verify an approved controlled website/PDF update and a real stats refresh become visible under the coordinated cache/invalidation policy before closing F28. Do not fabricate stats values or add tracking traffic to perform this check.
+
+Record before/after candidate identity, observation times, exact headers, account settings, invalidation/purge completion and stale-response limits. The existing workflow requests CloudFront invalidation; successful submission alone is not global completion, and D4's reader proof may intentionally stop while propagation or Cloudflare caching retains old HTML. Approved Cloudflare purge may also be needed. Purges cannot clear existing browser caches or replace already-open tabs; old metadata such as max-age=14400 can persist for those clients until its original lifetime ends. No 60/300-second end-to-end guarantee, speedup, public freshness closure or controlled update has been demonstrated by these local tests.

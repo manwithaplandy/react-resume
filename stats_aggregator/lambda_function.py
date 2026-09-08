@@ -462,7 +462,7 @@ def lambda_handler(event, context):
     s3.put_object(
         Bucket=WEBSITE_BUCKET, Key=STATS_KEY,
         Body=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
-        ContentType="application/json", CacheControl="max-age=3600",
+        ContentType="application/json", CacheControl="public, max-age=60, s-maxage=300",
     )
     print(f"INFO: published {STATS_KEY}: totalViews={payload['totalViews']}, uniqueVisitors={payload['uniqueVisitors']}")
     # Fully absent optional configuration is visible as unavailable/stale,
