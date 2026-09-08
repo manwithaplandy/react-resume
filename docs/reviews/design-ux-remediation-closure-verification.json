@@ -1,0 +1,70 @@
+{
+  "checkedAt": "2026-09-08T15:59:06.954051+00:00",
+  "implementationHead": "f8ab5340c66e0d56f94d3837bdb681fb2e873e31",
+  "filesVerified": 643,
+  "gzipDiffsVerified": 28,
+  "originalBytesVerified": 46765323,
+  "storedBytesVerified": 39335209,
+  "archiveManifestSha256": "96b983a8f1ae18eba317622d10799c659183d63ffc8b2ce86d14a7bd0af61e28",
+  "allSourceFilesInventoried": true,
+  "allStoredFilesInventoried": true,
+  "integrityFailures": [],
+  "secretSignatureCandidates": [],
+  "rawStateOrPlanStructureCandidates": [],
+  "trackedScratchCopies": [
+    {
+      "original": ".superpowers/sdd/2026-09-07-design-ux-remediation/evidence/c1-browser-evidence.txt",
+      "archived": "docs/reviews/remediation-evidence/2026-09-07-design-ux-remediation/evidence/c1-browser-evidence.txt",
+      "sha256": "2d5b16a3519b9fe85abb6a758334c096c74b8a8b1db75948faefd2b3b87afe10",
+      "matchesCommittedAndArchived": true
+    },
+    {
+      "original": ".superpowers/sdd/2026-09-07-design-ux-remediation/evidence/c1-contact-summary-320.png",
+      "archived": "docs/reviews/remediation-evidence/2026-09-07-design-ux-remediation/evidence/c1-contact-summary-320.png",
+      "sha256": "d65658a5e7f51aeb8f4ae2ec8b48d621bf37bc3c7904bf1be6908b68d22e53e9",
+      "matchesCommittedAndArchived": true
+    },
+    {
+      "original": ".superpowers/sdd/2026-09-07-design-ux-remediation/evidence/c1-counter-near-limit.png",
+      "archived": "docs/reviews/remediation-evidence/2026-09-07-design-ux-remediation/evidence/c1-counter-near-limit.png",
+      "sha256": "b9c789c66552f91631f31bea889175b66d2a97ef2e4a04976b582884d3a6dbe5",
+      "matchesCommittedAndArchived": true
+    },
+    {
+      "original": ".superpowers/sdd/2026-09-07-design-ux-remediation/evidence/c1-counter-ordinary.png",
+      "archived": "docs/reviews/remediation-evidence/2026-09-07-design-ux-remediation/evidence/c1-counter-ordinary.png",
+      "sha256": "f8e455e71bd51ef2c9e896a3beba4d942c67eedae47a071f524cf50ada537212",
+      "matchesCommittedAndArchived": true
+    },
+    {
+      "original": ".superpowers/sdd/2026-09-07-design-ux-remediation/task-A2-report.md",
+      "archived": "docs/reviews/remediation-evidence/2026-09-07-design-ux-remediation/task-A2-report.md",
+      "sha256": "00c0d9609830bc1784b4eb728ba4a777d1209424233a055a896312b8646efdad",
+      "matchesCommittedAndArchived": true
+    },
+    {
+      "original": ".superpowers/sdd/2026-09-07-design-ux-remediation/task-C1-report.md",
+      "archived": "docs/reviews/remediation-evidence/2026-09-07-design-ux-remediation/task-C1-report.md",
+      "sha256": "3d02be610153f33f5abdcece2d2cc1a6e0e1fe334b6f64e33b5c9eeef4636a6f",
+      "matchesCommittedAndArchived": true
+    }
+  ],
+  "rulingsVerified": 28,
+  "findingStatuses": {
+    "verified": 11,
+    "implemented": 14,
+    "blocked": 5,
+    "open": 0
+  },
+  "maintainedDocumentsChecked": 11,
+  "localLinksChecked": 123,
+  "finalInputEvidence": "remediation-evidence/2026-09-07-design-ux-remediation/evidence/controller-final-inputs.json",
+  "scratchCleanup": "Pending this audit; delete only the exact plan workspace after zero failures and controlled provenance review.",
+  "limits": "Exact byte/length/hash and gzip round-trip audit, local links and inventories only. Signature/structure heuristics do not prove secret absence; sanitized provenance/private-file exclusion remains required. Metadata README and manifest are excluded from self-hash. Historical report paths and whitespace remain exact. No application test, cloud query or release performed.",
+  "preservationStage": {
+    "stagedPaths": 122,
+    "scope": "docs/reviews only; current metadata and exact archive",
+    "currentAuthoredWhitespaceCheckExit": 0,
+    "historicalWhitespace": "Archive excluded under Ruling27; historical warnings preserved, no global whitespace-clean claim."
+  }
+}

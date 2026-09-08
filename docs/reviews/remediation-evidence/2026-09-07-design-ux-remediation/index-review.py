@@ -8,7 +8,9 @@ import sys
 source = Path(sys.argv[1])
 output = Path(sys.argv[2])
 raw = source.read_bytes()
-lines = raw.decode("utf-8").splitlines()
+lines = raw.decode("utf-8", errors="replace").split("\n")
+if lines and not lines[-1]:
+    lines.pop()
 sections = []
 for number, line in enumerate(lines, 1):
     match = re.match(r"diff --git a/(.+) b/(.+)$", line)
