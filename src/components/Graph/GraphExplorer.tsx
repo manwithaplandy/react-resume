@@ -1,9 +1,10 @@
 import dynamic from 'next/dynamic';
-import {FC, memo, useCallback, useEffect, useMemo, useReducer, useRef, useState} from 'react';
+import {FC, memo, SyntheticEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState} from 'react';
 import {match} from 'ts-pattern';
 
 import {initialFocusId, resumeGraph} from '../../data/graphData';
 import {KIND_LABELS} from '../../data/graphDef';
+import useReducedMotion from '../../hooks/useReducedMotion';
 import FocusPanel from './FocusPanel';
 import GraphListFallback from './GraphListFallback';
 import {graphNavReducer, initialGraphNavState} from './graphReducer';
@@ -63,7 +64,7 @@ const GraphExplorer: FC = memo(() => {
   const experienceRef = useRef<HTMLDivElement>(null);
   const threeViewRef = useRef<HTMLButtonElement>(null);
   const locationFocus = useRef<string | null | undefined>(undefined);
-  const [systemReducedMotion, setSystemReducedMotion] = useState(false);
+  const systemReducedMotion = useReducedMotion();
   const [manualReducedMotion, setManualReducedMotion] = useState(false);
   const [hintDismissed, setHintDismissed] = useState(true);
   const [legendOpen, setLegendOpen] = useState(false);
@@ -86,15 +87,6 @@ const GraphExplorer: FC = memo(() => {
     } catch {
       setHintDismissed(false);
     }
-  }, []);
-
-  // --- prefers-reduced-motion ------------------------------------------------
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setSystemReducedMotion(query.matches);
-    const handleChange = (event: MediaQueryListEvent) => setSystemReducedMotion(event.matches);
-    query.addEventListener('change', handleChange);
-    return () => query.removeEventListener('change', handleChange);
   }, []);
 
   // --- keyboard model: ←/→ scan, ↑ dive, ↓/Backspace back, Esc, Enter --------
@@ -249,20 +241,12 @@ const GraphExplorer: FC = memo(() => {
       // The in-memory choice remains usable when storage is denied.
     }
   }, []);
-  // Reopen the one-shot onboarding hint; the "Controls / ?" pill makes the
-  // dismissed-forever hint recoverable.
-  const handleShowHint = useCallback(() => {
-    setHintDismissed(false);
-    try {
-      window.localStorage.removeItem(HINT_DISMISSED_KEY);
-    } catch {
-      // The in-memory choice remains usable when storage is denied.
-    }
-  }, []);
   // WebGL existing isn't the same as WebGL being usable — the canvas's FPS
   // probe reports back so a too-slow device falls back to the list view.
   const handlePerformanceFallback = useCallback(() => {
-    threeViewRef.current?.focus();
+    if (experienceRef.current?.contains(document.activeElement)) {
+      threeViewRef.current?.focus();
+    }
     setCapability('performance');
   }, []);
   const handleChooseView = useCallback((view: '3d' | 'list') => {
@@ -275,7 +259,22 @@ const GraphExplorer: FC = memo(() => {
   }, []);
   const handleTextView = useCallback(() => handleChooseView('list'), [handleChooseView]);
   const handleThreeView = useCallback(() => handleChooseView('3d'), [handleChooseView]);
-  const handleToggleLegend = useCallback(() => setLegendOpen(open => !open), []);
+  const handleHelpToggle = useCallback((event: SyntheticEvent<HTMLDetailsElement>) => {
+    const open = event.currentTarget.open;
+    setHintDismissed(!open);
+    try {
+      if (open) {
+        window.localStorage.removeItem(HINT_DISMISSED_KEY);
+      } else {
+        window.localStorage.setItem(HINT_DISMISSED_KEY, 'true');
+      }
+    } catch {
+      // The in-memory choice remains usable when storage is denied.
+    }
+  }, []);
+  const handleLegendToggle = useCallback((event: SyntheticEvent<HTMLDetailsElement>) => {
+    setLegendOpen(event.currentTarget.open);
+  }, []);
   const handleToggleMotion = useCallback(() => setManualReducedMotion(value => !value), []);
 
   const breadcrumb = useMemo(() => {
@@ -288,12 +287,15 @@ const GraphExplorer: FC = memo(() => {
   const handleCrumbClick = useCallback((id: string) => dispatch({id, type: 'focusNode'}), []);
 
   return (
-    <>
+    <section className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col">
       <p aria-live="polite" className="sr-only" role="status">
         {announcement}
       </p>
 
-      <div aria-label="Graph view" className="flex gap-x-2 px-4 pb-4 pt-40 sm:px-6" role="group">
+      <div
+        aria-label="Career graph controls"
+        className="flex flex-wrap items-start gap-2 px-3 py-2 sm:px-6"
+        role="toolbar">
         <button
           aria-pressed={mode === 'list'}
           className={PILL_BUTTON_CLASS}
@@ -310,36 +312,56 @@ const GraphExplorer: FC = memo(() => {
           type="button">
           3D view
         </button>
+
+        <details className="min-w-0 max-w-full sm:max-w-xl" onToggle={handleHelpToggle} open={!hintDismissed}>
+          <summary className={`${PILL_BUTTON_CLASS} cursor-pointer select-none`}>How to explore</summary>
+          <div className="mt-2 rounded-xl border border-neutral-700 bg-neutral-900 p-4 text-sm text-neutral-300">
+            <p>Click or tap a node to select it. Drag the graph to orbit.</p>
+            <p className="mt-2">Use ←/→ to scan connections, ↑ to dive in, and ↓ to go back.</p>
+            <button
+              aria-label="Dismiss hint"
+              className="mt-3 rounded-md border border-neutral-600 px-3 py-1 text-xs text-neutral-200 hover:border-orange-500 hover:text-orange-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+              onClick={handleDismissHint}
+              type="button">
+              Close help
+            </button>
+          </div>
+        </details>
+
+        <details className="min-w-0 max-w-full sm:max-w-xl" onToggle={handleLegendToggle} open={legendOpen}>
+          <summary className={`${PILL_BUTTON_CLASS} cursor-pointer select-none`}>Legend</summary>
+          <dl className="mt-2 flex flex-col gap-y-1 rounded-xl border border-neutral-700 bg-neutral-900 p-4 text-xs text-neutral-300">
+            <LegendRow shape="●" text="Role (large sphere) · warm = recent" />
+            <LegendRow shape="◆" text="Certification (octahedron, yellow)" />
+            <LegendRow shape="○" text="Skill area (wireframe orb)" />
+            <LegendRow shape="•" text="Skill / tool (small sphere) · brighter = deeper" />
+            <LegendRow shape="▪" text="Highlight / achievement (cube)" />
+            <LegendRow shape="◇" text="Education (icosahedron)" />
+            <LegendRow shape="—" text="Orange = selected path · white ring = next (←/→)" />
+          </dl>
+        </details>
+
+        <button
+          aria-pressed={manualReducedMotion}
+          className={PILL_BUTTON_CLASS}
+          onClick={handleToggleMotion}
+          type="button">
+          {reducedMotion ? 'Motion: reduced' : 'Reduce motion'}
+        </button>
       </div>
 
       {match(mode)
         .with('detecting', () => (
-          <div className="relative h-[100svh]">
+          <div className="relative min-h-[320px] flex-1">
             <GraphSkeleton />
           </div>
         ))
         .with('3d', () => (
-          <div className="relative h-[100svh] print:hidden" ref={experienceRef}>
-            <div
-              aria-label="Interactive 3D career graph. Use left and right arrows to scan connections, up arrow to dive in, down arrow to go back, Escape to deselect."
-              aria-roledescription="3D career graph"
-              className="absolute inset-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500"
-              ref={applicationRef}
-              role="application"
-              tabIndex={0}>
-              <ResumeGraphCanvas
-                dispatch={dispatch}
-                onPerformanceFallback={handlePerformanceFallback}
-                reducedMotion={reducedMotion}
-                state={state}
-              />
-            </div>
-
-            {/* Breadcrumb trail of focus history (last 3 crumbs). */}
+          <div className="flex min-h-[320px] flex-1 flex-col px-3 pb-4 sm:px-6" ref={experienceRef}>
             {breadcrumb.length > 0 && (
               <nav
                 aria-label="Focus history"
-                className="pointer-events-auto absolute left-3 top-36 z-20 flex max-w-[80vw] items-center gap-x-1 text-xs text-neutral-400 sm:left-6 sm:top-44">
+                className="mb-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-neutral-400">
                 {breadcrumb.length > 3 && <span aria-hidden="true">… /</span>}
                 {breadcrumb.slice(-3).map((crumb, index, visible) => (
                   <Crumb
@@ -352,65 +374,25 @@ const GraphExplorer: FC = memo(() => {
                 ))}
               </nav>
             )}
-
-            {/* Collapsible legend, top-right. */}
-            <div className="absolute right-3 top-16 z-20 flex flex-col items-end gap-y-2 sm:right-6 sm:top-20">
-              <div className="flex items-center gap-x-2">
-                {hintDismissed && (
-                  <button
-                    aria-label="Show controls hint"
-                    className={PILL_BUTTON_CLASS}
-                    onClick={handleShowHint}
-                    type="button">
-                    Controls ?
-                  </button>
-                )}
-                <button
-                  aria-expanded={legendOpen}
-                  className={PILL_BUTTON_CLASS}
-                  onClick={handleToggleLegend}
-                  type="button">
-                  {legendOpen ? 'Hide legend' : 'Legend'}
-                </button>
-              </div>
-              {legendOpen && (
-                <dl className="pointer-events-auto flex flex-col gap-y-1 rounded-xl border border-neutral-700 bg-neutral-900/80 p-4 text-xs text-neutral-300 backdrop-blur-md">
-                  <LegendRow shape="●" text="Role (large sphere) · warm = recent" />
-                  <LegendRow shape="◆" text="Certification (octahedron, yellow)" />
-                  <LegendRow shape="○" text="Skill area (wireframe orb)" />
-                  <LegendRow shape="•" text="Skill / tool (small sphere) · brighter = deeper" />
-                  <LegendRow shape="▪" text="Highlight / achievement (cube)" />
-                  <LegendRow shape="◇" text="Education (icosahedron)" />
-                  <LegendRow shape="—" text="Orange = selected path · white ring = next (←/→)" />
-                </dl>
-              )}
-              <button
-                aria-pressed={manualReducedMotion}
-                className={PILL_BUTTON_CLASS}
-                onClick={handleToggleMotion}
-                type="button">
-                {reducedMotion ? 'Motion: reduced' : 'Reduce motion'}
-              </button>
-            </div>
-
-            {/* Dismissible onboarding hint. */}
-            {!hintDismissed && (
-              <div className="pointer-events-none absolute inset-x-0 top-16 z-20 flex justify-center px-4 sm:top-20">
-                <div className="pointer-events-auto flex items-center gap-x-3 rounded-full border border-neutral-700 bg-neutral-900/80 px-4 py-2 text-xs text-neutral-300 backdrop-blur-md">
-                  <span className="hidden sm:inline">Click a node · ←/→ scan connections · ↑ dive in · ↓ back</span>
-                  <span className="sm:hidden">Tap a node · drag to orbit · use the card to scan & dive</span>
-                  <button
-                    aria-label="Dismiss hint"
-                    className="text-neutral-500 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-                    onClick={handleDismissHint}
-                    type="button">
-                    ✕
-                  </button>
+            <div className="grid min-h-[320px] flex-1 gap-4 md:grid-cols-[minmax(0,3fr)_minmax(18rem,2fr)]">
+              <div className="relative min-h-[320px] overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900">
+                <div
+                  aria-label="Interactive 3D career graph. Use left and right arrows to scan connections, up arrow to dive in, down arrow to go back, Escape to deselect."
+                  aria-roledescription="3D career graph"
+                  className="absolute inset-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500"
+                  ref={applicationRef}
+                  role="application"
+                  tabIndex={0}>
+                  <ResumeGraphCanvas
+                    dispatch={dispatch}
+                    onPerformanceFallback={handlePerformanceFallback}
+                    reducedMotion={reducedMotion}
+                    state={state}
+                  />
                 </div>
               </div>
-            )}
-
-            <FocusPanel dispatch={dispatch} state={state} />
+              <FocusPanel dispatch={dispatch} reducedMotion={reducedMotion} state={state} />
+            </div>
           </div>
         ))
         .with('list', () => (
@@ -419,7 +401,7 @@ const GraphExplorer: FC = memo(() => {
           </div>
         ))
         .exhaustive()}
-    </>
+    </section>
   );
 });
 
@@ -427,10 +409,10 @@ const Crumb: FC<{id: string; label: string; isLast: boolean; onClick: (id: strin
   ({id, label, isLast, onClick}) => {
     const handleClick = useCallback(() => onClick(id), [id, onClick]);
     return (
-      <span className="flex items-center gap-x-1">
+      <span className="flex min-w-0 max-w-full items-center gap-x-1">
         <button
           aria-current={isLast ? 'true' : undefined}
-          className={`pointer-events-auto max-w-[10rem] truncate rounded px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
+          className={`pointer-events-auto min-w-0 max-w-full break-words rounded px-1 text-left [overflow-wrap:anywhere] focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
             isLast ? 'font-medium text-orange-400' : 'hover:text-white'
           }`}
           onClick={handleClick}

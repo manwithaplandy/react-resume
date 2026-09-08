@@ -151,7 +151,9 @@ for (const operation of ['getItem', 'setItem', 'removeItem', 'getter']) {
     await page.goto('/graph?view=3d#node=skill%3Apython');
     await expectThreeDimensionalView(page);
     await page.getByRole('button', {name: 'Dismiss hint', exact: true}).click();
-    await page.getByRole('button', {name: 'Show controls hint', exact: true}).click();
+    const help = page.locator('details').filter({has: page.getByText('How to explore', {exact: true})});
+    await expect(help).not.toHaveAttribute('open', '');
+    await help.locator('summary').click();
     await expect(page.getByRole('button', {name: 'Dismiss hint', exact: true})).toBeVisible();
     await textView(page).click();
     await expect(list(page).getByRole('button', {name: 'Python', exact: true})).toHaveAttribute(

@@ -34,7 +34,7 @@ const GraphListFallback: FC<{
     <ul>
       {nodesByKind.map(({kind, nodes}) => (
         <li key={kind}>
-          <h2 className="pb-2 pt-6 text-xs font-bold uppercase tracking-wider text-neutral-500">
+          <h2 className="pb-2 pt-6 text-xs font-bold uppercase tracking-wider text-neutral-400">
             {KIND_LABELS[kind]}s
           </h2>
           <ul>
@@ -150,7 +150,7 @@ const NeighborLink: FC<{
         <span className="sr-only">
           , connection {index + 1} of {total}
         </span>
-        <span aria-hidden="true" className="text-neutral-500">
+        <span aria-hidden="true" className="text-neutral-400">
           {' '}
           · {KIND_LABELS[neighbor.kind]}
         </span>
