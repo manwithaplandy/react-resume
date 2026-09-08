@@ -26,12 +26,6 @@ resource "aws_lambda_function" "form_submission" {
   }
 }
 
-data "archive_file" "sns_publish_lambda_function" {
-  type        = "zip"
-  source_file = "../sns_publish_lambda/lambda_function.py"
-  output_path = "lambda_function.zip"
-}
-
 resource "aws_iam_role" "lambda_exec" {
   name = "lambda_exec"
 
