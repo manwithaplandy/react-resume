@@ -11,17 +11,25 @@ const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const fixtureDirectory = fileURLToPath(new URL('../tests/fixtures/', import.meta.url));
 const MAX_BYTES = 4 * 1024 * 1024;
 
-export function requiresReaderBeforeApply(plan) {
+function analyticsActions(plan) {
   assert.ok(plan && /^1\./.test(plan.format_version) && Array.isArray(plan.resource_changes), 'Unrecognized Terraform plan; inspect before apply');
-  let required = false;
+  const changes = [];
   for (const resource of plan.resource_changes) {
     assert.ok(resource && typeof resource.type === 'string' && typeof resource.name === 'string', 'Unrecognized resource in Terraform plan');
     if (resource.type !== 'aws_lambda_function' || resource.name !== 'stats_aggregator') continue;
     const actions = resource.change?.actions;
     assert.ok(Array.isArray(actions) && actions.length > 0 && actions.every(action => ['no-op', 'create', 'read', 'update', 'delete'].includes(action)), 'Unrecognized producer plan actions');
-    required ||= actions.includes('create');
+    changes.push(actions);
   }
-  return required;
+  return changes;
+}
+
+export function requiresReaderBeforeApply(plan) {
+  return analyticsActions(plan).some(actions => actions.includes('create'));
+}
+
+export function analyticsPlanChange(plan) {
+  return analyticsActions(plan).some(actions => actions.some(action => action !== 'no-op'));
 }
 
 function releaseOrigin(value, allowLocal) {
@@ -126,6 +134,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (args.includes('--plan')) {
       const plan = JSON.parse(await readFile(value('--plan'), 'utf8'));
       console.log(`requires_reader=${requiresReaderBeforeApply(plan)}`);
+      console.log(`analytics_change=${analyticsPlanChange(plan)}`);
     } else {
       assert.ok(args.includes('--artifact-dir') && args.includes('--report'), 'Use --artifact-dir, --origin (repeatable), and --report');
       const origins = args.flatMap((argument, index) => argument === '--origin' ? [args[index + 1]] : []);

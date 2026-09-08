@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
+import {existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -115,4 +115,25 @@ test('failed asset upload stops before publishing recovery HTML', () => {
   }), /synthetic upload failure/);
   assert.equal(calls.length, 1);
   assert.ok(calls[0][3].includes('/_next/static/'));
+});
+
+test('missing or invalid bucket blocks the CLI before any AWS subprocess', () => {
+  const {directory, artifact} = fixture();
+  const manifestPath = path.join(directory, 'manifest.json');
+  writeFileSync(manifestPath, JSON.stringify(createManifest(artifact)));
+  const marker = path.join(directory, 'aws-invoked');
+  const bin = path.join(directory, 'bin');
+  mkdirSync(bin);
+  writeFileSync(path.join(bin, 'aws'), `#!${process.execPath}\nrequire('node:fs').writeFileSync(process.env.AWS_MARKER,'invoked');`, {mode: 0o755});
+
+  for (const bucketArgs of [[], ['--bucket', 'Invalid_Bucket']]) {
+    const result = spawnSync(process.execPath, ['scripts/publish_static_site.mjs', 'upload', '--artifact-dir', artifact,
+      '--manifest', manifestPath, ...bucketArgs, '--phase', 'all'], {
+      env: {PATH: bin, AWS_MARKER: marker, AWS_EC2_METADATA_DISABLED: 'true', AWS_CONFIG_FILE: '/dev/null', AWS_SHARED_CREDENTIALS_FILE: '/dev/null'},
+      encoding: 'utf8',
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /S3 bucket name/);
+    assert.equal(existsSync(marker), false);
+  }
 });

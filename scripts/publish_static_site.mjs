@@ -80,7 +80,7 @@ function runAws(command, args) {
 }
 
 export function publishManifest(manifest, artifactDirectory, bucket, phase, run = runAws) {
-  assert.ok(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket), 'Expected an S3 bucket name');
+  assert.ok(typeof bucket === 'string' && /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket), 'Expected an S3 bucket name');
   assert.ok(['recovery', 'all'].includes(phase), 'Expected recovery or all publication phase');
   // Recheck bytes, ownership, metadata and references before the first write.
   assert.deepEqual(manifest, createManifest(artifactDirectory), 'Candidate manifest no longer matches checked files');

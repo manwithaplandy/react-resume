@@ -34,24 +34,6 @@ resource "aws_lambda_function" "stats_aggregator" {
   depends_on = [aws_cloudwatch_log_group.stats_aggregator]
 }
 
-data "archive_file" "stats_aggregator_function" {
-  type        = "zip"
-  output_path = "stats_aggregator.zip"
-
-  source {
-    content  = file("${path.module}/../stats_aggregator/lambda_function.py")
-    filename = "lambda_function.py"
-  }
-  source {
-    content  = file("${path.module}/../stats_aggregator/payload.py")
-    filename = "payload.py"
-  }
-  source {
-    content  = file("${path.module}/../stats_aggregator/ledger.py")
-    filename = "ledger.py"
-  }
-}
-
 locals {
   # SecureString parameter holding the Cloudflare Analytics:Read API token.
   # Created manually (see README) so the token never touches Terraform state

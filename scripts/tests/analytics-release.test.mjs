@@ -6,7 +6,7 @@ import {after, before, test} from 'node:test';
 
 import {chromium} from '@playwright/test';
 
-import {requiresReaderBeforeApply, verifyPublicReader} from '../verify_public_stats_reader.mjs';
+import {analyticsPlanChange, requiresReaderBeforeApply, verifyPublicReader} from '../verify_public_stats_reader.mjs';
 
 const artifactDirectory = path.resolve('out');
 const fixture = JSON.parse(await readFile('tests/fixtures/stats-v1.json', 'utf8'));
@@ -73,4 +73,17 @@ test('create and replace require pre-apply reader proof; update does not bypass 
   assert.equal(requiresReaderBeforeApply(plan(['no-op'])), false);
   assert.throws(() => requiresReaderBeforeApply({}), /plan/);
   assert.throws(() => requiresReaderBeforeApply(plan(['unexpected'])), /actions/);
+});
+
+test('analytics plan changes are identified for the migration approval gate', () => {
+  const plan = actions => ({format_version: '1.2', resource_changes: [
+    {type: 'aws_lambda_function', name: 'stats_aggregator', change: {actions}},
+  ]});
+  assert.equal(analyticsPlanChange(plan(['create'])), true);
+  assert.equal(analyticsPlanChange(plan(['update'])), true);
+  assert.equal(analyticsPlanChange(plan(['delete', 'create'])), true);
+  assert.equal(analyticsPlanChange(plan(['delete'])), true);
+  assert.equal(analyticsPlanChange(plan(['no-op'])), false);
+  assert.equal(analyticsPlanChange({format_version: '1.2', resource_changes: []}), false);
+  assert.throws(() => analyticsPlanChange(plan(['unexpected'])), /actions/);
 });
