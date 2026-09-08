@@ -19,6 +19,11 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    # Keep command substitutions and diagnostic pipelines fail closed.
+    shell: bash
+
 # A checked artifact belongs to one complete release. Never let two runs mix
 # candidate archives, plans, website bytes or producer versions.
 concurrency:
