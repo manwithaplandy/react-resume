@@ -44,7 +44,7 @@ export const Skill: FC<{skill: SkillType}> = memo(({skill}) => {
   return (
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
       <span className="min-w-0 break-words text-sm font-medium text-neutral-200">{name}</span>
-      <div className="flex shrink-0 items-center gap-x-2">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-xs font-semibold uppercase tracking-wider text-orange-400">{tier.label}</span>
         <div aria-hidden="true" className="flex gap-x-1">
           {[0, 1, 2].map(index => (

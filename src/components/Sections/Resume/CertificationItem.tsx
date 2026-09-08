@@ -8,7 +8,7 @@ import SpotlightCard from '../../SpotlightCard';
 const CertificationItem: FC<{certification: Certification}> = memo(({certification}) => {
   const {name, issuer, date, image, status, verificationUrl} = certification;
   return (
-    <SpotlightCard className="flex min-w-0 items-center p-4">
+    <SpotlightCard className="flex min-w-0 flex-wrap items-center gap-y-3 p-4">
       {/* Image container: light well for real badge art (most badges assume a
           white backing), dark well for the letter fallback so it sits in-theme. */}
       <div
@@ -30,7 +30,7 @@ const CertificationItem: FC<{certification: Certification}> = memo(({certificati
       </div>
 
       {/* Certification info */}
-      <div className="flex min-w-0 flex-1 flex-col justify-center">
+      <div className="flex min-w-0 flex-1 basis-40 flex-col justify-center">
         <h3 className="text-lg font-semibold text-neutral-100">{name}</h3>
         <p className="text-sm font-medium text-neutral-400">{issuer}</p>
         <p className="text-sm text-neutral-400">Year listed: {date}</p>
