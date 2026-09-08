@@ -20,6 +20,11 @@ const personSchemaJson = JSON.stringify({
   email: `mailto:${person.email}`,
   worksFor: {'@type': 'Organization', name: person.worksFor, url: person.worksForUrl},
   alumniOf: person.alumniOf.map(name => ({'@type': 'CollegeOrUniversity', name})),
+  memberOf: person.studiesAt.map(study => ({
+    '@type': 'CollegeOrUniversity',
+    name: study.name,
+    description: `${study.program} student, expected ${study.expectedCompletion}`,
+  })),
   address: {'@type': 'PostalAddress', addressLocality: person.location},
   knowsAbout: person.knowsAbout,
   sameAs: person.sameAs,

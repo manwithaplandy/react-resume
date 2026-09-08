@@ -125,6 +125,8 @@ export interface Certification {
   issuer: string;
   date: string;
   credentialId?: string;
+  verificationUrl?: string;
+  status?: 'current' | 'historical';
   image?: string | StaticImageData;
 }
 

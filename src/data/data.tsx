@@ -109,7 +109,7 @@ export const heroData: Hero = {
  */
 export const aboutData: About = {
   profileImageSrc: profilepic,
-  description: `I'm an Arizona-based Lead AI/ML Engineer at General Atomics, where I lead the enterprise AI program for a defense company — a long way from the psychology degree I started with at UC Santa Barbara. Over the past five years I've worked across technology and infrastructure, and I'm finishing a Master's in Computer Science at Georgia Tech along the way. Today I design and ship secure, cost-effective LLM agent platforms on AWS and Azure (certified in both), using orchestration frameworks like LangGraph and Semantic Kernel and agent protocols like MCP and A2A.`,
+  description: `My route into engineering started with psychology at UC Santa Barbara and moved through compliance, IT operations, automation, and enterprise AI. I now focus on secure, cost-effective LLM agent platforms while pursuing a Master's in Computer Science at Georgia Tech, expected in 2028.`,
   aboutItems: [
     {label: 'Location', text: 'Arizona', Icon: MapIcon},
     // {label: 'Age', text: '29', Icon: CalendarIcon},

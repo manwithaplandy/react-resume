@@ -26,9 +26,9 @@ interface Tier {
 }
 
 /**
- * Maps the numeric proficiency from the data into a discrete tier. Levels run
- * 3-10 on a /10 scale; the bands keep the previous bar's intent without the
- * progress-bar language: 8-10 = Expert, 6-7 = Proficient, ≤5 = Familiar.
+ * Maps the stored numeric self-ratings into their existing display tiers.
+ * These thresholds preserve the earlier bar's presentation; they do not define
+ * what each tier means. The definitions and current ratings await owner review.
  */
 const tierForLevel = (level: number, max: number): Tier => {
   const scaled = (level / max) * 10;

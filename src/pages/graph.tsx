@@ -10,7 +10,7 @@ import {siteConfig} from '../data/siteConfig';
 
 const {person} = siteConfig;
 const currentRole = experience[0];
-const careerStartYear = /\d{4}/.exec(experience[experience.length - 1].date)?.[0] ?? '2018';
+const currentRoleStart = currentRole.date.replace(/\s+-\s+Present$/i, '');
 
 /**
  * /graph — the explorable "career constellation". Additive only: the classic
@@ -42,7 +42,7 @@ const Graph: FC = memo(() => {
           <div className="pointer-events-auto inline-flex max-w-full flex-col gap-y-1 rounded-xl border border-neutral-700 bg-neutral-900/70 px-4 py-3 backdrop-blur-md">
             <h1 className="text-lg font-bold leading-tight sm:text-xl">{person.name}</h1>
             <p className="text-xs text-neutral-400 sm:text-sm">
-              {currentRole.title}, {currentRole.location} · since {careerStartYear}
+              {currentRole.title}, {currentRole.location} · since {currentRoleStart}
             </p>
             <p className="text-xs text-neutral-500 sm:text-sm">
               Each node is a role, skill, or certification — explore how they connect.
