@@ -59,12 +59,39 @@
   "maintainedDocumentsChecked": 11,
   "localLinksChecked": 123,
   "finalInputEvidence": "remediation-evidence/2026-09-07-design-ux-remediation/evidence/controller-final-inputs.json",
-  "scratchCleanup": "Pending this audit; delete only the exact plan workspace after zero failures and controlled provenance review.",
+  "scratchCleanup": {
+    "completedAt": "2026-09-08T16:01:13.877630+00:00",
+    "removedOnly": ".superpowers/sdd/2026-09-07-design-ux-remediation",
+    "filesPreservedBeforeRemoval": 643,
+    "preservationCommit": "51b0bb9111aad3f5fafadffee4582aacde262cc7",
+    "committedArchiveInventoryMatched": true,
+    "allOriginalBytesRecheckedImmediatelyBeforeRemoval": true,
+    "workspaceAbsentAfterRemoval": true,
+    "siblingDirectoriesUnchanged": true,
+    "implementationWorktreeAndBranchPreserved": true,
+    "trackedScratchRemovals": 6
+  },
   "limits": "Exact byte/length/hash and gzip round-trip audit, local links and inventories only. Signature/structure heuristics do not prove secret absence; sanitized provenance/private-file exclusion remains required. Metadata README and manifest are excluded from self-hash. Historical report paths and whitespace remain exact. No application test, cloud query or release performed.",
   "preservationStage": {
     "stagedPaths": 122,
     "scope": "docs/reviews only; current metadata and exact archive",
     "currentAuthoredWhitespaceCheckExit": 0,
     "historicalWhitespace": "Archive excluded under Ruling27; historical warnings preserved, no global whitespace-clean claim."
+  },
+  "finalHandoffCheck": {
+    "checkedAt": "2026-09-08T16:01:59.864694+00:00",
+    "branch": "codex/design-ux-remediation",
+    "baseBranch": "main",
+    "baseCommit": "9b7f6fe20e30784b21ee39fb5f328aafb8e713b8",
+    "worktree": "/Users/andrew/Scripts/react-resume/.worktrees/design-ux-remediation",
+    "gitDir": "/Users/andrew/Scripts/react-resume/.git/worktrees/design-ux-remediation",
+    "gitCommonDir": "/Users/andrew/Scripts/react-resume/.git",
+    "testedInputHashesCompared": 144,
+    "testedInputsUnchanged": true,
+    "changesAfterImplementation": "Only docs/reviews metadata/evidence and the six verified scratch-copy removals",
+    "originalDeliverablesRechecked": 22,
+    "originalDeliverablesAndMainUnchanged": true,
+    "integration": "Pending user decision; no merge/push/deploy",
+    "verificationReuse": "No application input changed after the final passing suite; no repeat suite or cloud run."
   }
 }
