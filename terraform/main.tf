@@ -278,6 +278,20 @@ resource "aws_cloudfront_distribution" "website_distribution" {
   enabled             = true
   default_root_object = "index.html"
 
+  custom_error_response {
+    error_caching_min_ttl = 10
+    error_code            = 403
+    response_code         = 404
+    response_page_path    = "/404.html"
+  }
+
+  custom_error_response {
+    error_caching_min_ttl = 10
+    error_code            = 404
+    response_code         = 404
+    response_page_path    = "/404.html"
+  }
+
   default_cache_behavior {
     # F7: a static read-only site only needs read methods.
     allowed_methods            = ["GET", "HEAD", "OPTIONS"]
@@ -340,20 +354,9 @@ resource "aws_cloudfront_distribution" "website_distribution" {
 resource "aws_cloudfront_function" "rewrite_extensionless" {
   name    = "rewrite-extensionless-to-html"
   runtime = "cloudfront-js-2.0"
-  comment = "Map / -> /index.html and extensionless paths -> .html for the S3 origin"
+  comment = "Normalize public page paths for the S3 origin"
   publish = true
-  code    = <<-EOT
-    function handler(event) {
-      var request = event.request;
-      var uri = request.uri;
-      if (uri.endsWith('/')) {
-        request.uri = uri + 'index.html';
-      } else if (!uri.split('/').pop().includes('.')) {
-        request.uri = uri + '.html';
-      }
-      return request;
-    }
-  EOT
+  code    = file("${path.module}/functions/rewrite-extensionless.js")
 }
 
 # F6: response-headers policy adding HSTS (and a few hardening headers) to every

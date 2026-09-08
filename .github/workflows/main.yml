@@ -106,6 +106,25 @@ jobs:
           name: plan
           path: terraform/plan
 
+      - name: Download candidate website artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: out
+          path: candidate-out
+
+      - name: Verify candidate recovery document and assets
+        run: |
+          test -s candidate-out/404.html
+          node <<'NODE'
+          const {existsSync, readFileSync} = require('node:fs');
+          const html = readFileSync('candidate-out/404.html', 'utf8');
+          const references = [...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"?#]+)(?:[?#][^"]*)?"/g)]
+            .map(match => match[1]);
+          if (references.length === 0) throw new Error('404.html has no candidate static references');
+          const missing = references.filter(reference => !existsSync(`candidate-out${reference}`));
+          if (missing.length > 0) throw new Error(`Missing 404 assets: ${missing.join(', ')}`);
+          NODE
+
       # First creation/replacement embeds producer code in Terraform apply,
       # so it needs public reader proof BEFORE apply, not just code-update.
       - name: Setup Node for bootstrap gate
@@ -125,13 +144,6 @@ jobs:
           node scripts/verify_public_stats_reader.mjs --plan "$RUNNER_TEMP/analytics-plan.json" >> "$GITHUB_OUTPUT"
           rm "$RUNNER_TEMP/analytics-plan.json"
 
-      - name: Download candidate reader for first producer creation
-        if: steps.analytics-bootstrap.outputs.requires_reader == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: out
-          path: out
-
       - name: Install browser for bootstrap gate
         if: steps.analytics-bootstrap.outputs.requires_reader == 'true'
         run: yarn playwright install --with-deps chromium
@@ -139,7 +151,7 @@ jobs:
       - name: Verify public reader before producer bootstrap
         if: steps.analytics-bootstrap.outputs.requires_reader == 'true'
         run: |
-          node scripts/verify_public_stats_reader.mjs --artifact-dir out \
+          node scripts/verify_public_stats_reader.mjs --artifact-dir candidate-out \
             --origin https://andrewmalvani.com --origin https://www.andrewmalvani.com \
             --report bootstrap-reader-verification.json
         # If unavailable/stale, stop: stage the reader in a separate reviewed
@@ -161,6 +173,18 @@ jobs:
         run: |
           (cd sns_publish_lambda && zip ../terraform/lambda_function.zip lambda_function.py)
           (cd stats_aggregator && zip ../terraform/stats_aggregator.zip lambda_function.py payload.py ledger.py)
+
+      # Upload immutable candidate assets first and 404.html last. This makes
+      # the recovery page usable before Terraform can enable its error mapping.
+      # No objects are deleted and stats.json is not touched.
+      - name: Stage checked recovery page before CloudFront error policy
+        run: |
+          aws s3 cp candidate-out/_next/static/ "s3://$S3_BUCKET_NAME/_next/static/" \
+            --recursive --only-show-errors
+          aws s3 cp candidate-out/404.html "s3://$S3_BUCKET_NAME/404.html" \
+            --content-type "text/html; charset=utf-8" --only-show-errors
+        env:
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
 
       - name: Terraform Apply
         run: terraform -chdir=terraform apply "plan/plan.tfplan"
