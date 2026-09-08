@@ -106,6 +106,53 @@ jobs:
           name: plan
           path: terraform/plan
 
+      # First creation/replacement embeds producer code in Terraform apply,
+      # so it needs public reader proof BEFORE apply, not just code-update.
+      - name: Setup Node for bootstrap gate
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'yarn'
+
+      - name: Install release gate dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Identify analytics bootstrap prerequisite
+        id: analytics-bootstrap
+        run: |
+          umask 077
+          terraform -chdir=terraform show -json plan/plan.tfplan > "$RUNNER_TEMP/analytics-plan.json"
+          node scripts/verify_public_stats_reader.mjs --plan "$RUNNER_TEMP/analytics-plan.json" >> "$GITHUB_OUTPUT"
+          rm "$RUNNER_TEMP/analytics-plan.json"
+
+      - name: Download candidate reader for first producer creation
+        if: steps.analytics-bootstrap.outputs.requires_reader == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: out
+          path: out
+
+      - name: Install browser for bootstrap gate
+        if: steps.analytics-bootstrap.outputs.requires_reader == 'true'
+        run: yarn playwright install --with-deps chromium
+
+      - name: Verify public reader before producer bootstrap
+        if: steps.analytics-bootstrap.outputs.requires_reader == 'true'
+        run: |
+          node scripts/verify_public_stats_reader.mjs --artifact-dir out \
+            --origin https://andrewmalvani.com --origin https://www.andrewmalvani.com \
+            --report bootstrap-reader-verification.json
+        # If unavailable/stale, stop: stage the reader in a separate reviewed
+        # bootstrap before retrying. Never bypass this by renaming resources.
+
+      - name: Preserve bootstrap reader evidence
+        if: steps.analytics-bootstrap.outputs.requires_reader == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: bootstrap-reader-verification
+          path: bootstrap-reader-verification.json
+          if-no-files-found: error
+
       # data.archive_file writes these zips at *plan* time (previous job's
       # workspace), but the provider reads them from disk when creating a
       # Lambda at *apply* time — recreate them here so a first-time function
@@ -146,11 +193,45 @@ jobs:
           env:
             S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
 
+  verify-analytics-reader:
+      name: Verify Public Analytics Reader
+      needs: [update-s3-contents, cloudfront-invalidation]
+      runs-on: ubuntu-latest
+      permissions:
+        contents: read
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v6
+        - name: Setup Node
+          uses: actions/setup-node@v6
+          with:
+            node-version: '22'
+            cache: 'yarn'
+        - name: Install release gate dependencies
+          run: yarn install --frozen-lockfile
+        - name: Download candidate reader artifact
+          uses: actions/download-artifact@v8
+          with:
+            name: out
+            path: out
+        - name: Install verification browser
+          run: yarn playwright install --with-deps chromium
+        - name: Verify ordinary public reader responses and behavior
+          run: |
+            node scripts/verify_public_stats_reader.mjs --artifact-dir out \
+              --origin https://andrewmalvani.com --origin https://www.andrewmalvani.com \
+              --report public-reader-verification.json
+        - name: Preserve reader release evidence
+          uses: actions/upload-artifact@v7
+          with:
+            name: public-reader-verification
+            path: public-reader-verification.json
+            if-no-files-found: error
+
   update-lambda-code:
       name: Update Lambda Code
-      # Publish the compatible reader before updating the stats producer.
-      # D4/E5 adds the public/cache verification release prerequisite.
-      needs: update-s3-contents
+      # E5 must retain this dependency when reusing checked deployment artifacts.
+      needs: verify-analytics-reader
       runs-on: ubuntu-latest
       environment: "AWS General"
       strategy:
