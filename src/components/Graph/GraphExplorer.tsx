@@ -179,12 +179,29 @@ const GraphExplorer: FC = memo(() => {
   useEffect(() => {
     const handleLocationChange = () => {
       const view = new URLSearchParams(window.location.search).get('view') === 'list' ? 'list' : '3d';
-      if (view !== requestedView && experienceRef.current?.contains(document.activeElement)) {
-        (view === 'list' || capability !== 'supported' ? textViewRef : threeViewRef).current?.focus();
-      }
-      setRequestedView(view);
       const fromHash = parseNodeHash(window.location.hash);
       const target = fromHash ?? (window.location.hash ? initialFocusId : null);
+      const focusedDetails = state.focusedId ? document.getElementById(`graph-details-${state.focusedId}`) : null;
+      // Selection-only history also removes the outgoing text connections.
+      // Recover their focus before dispatch; entry and mode buttons survive.
+      const removesFocusedConnection = target !== state.focusedId && focusedDetails?.contains(document.activeElement);
+      if (
+        (view !== requestedView && experienceRef.current?.contains(document.activeElement)) ||
+        removesFocusedConnection
+      ) {
+        const recoveryButton = (view === 'list' || capability !== 'supported' ? textViewRef : threeViewRef).current;
+        recoveryButton?.focus({preventScroll: Boolean(removesFocusedConnection)});
+        if (removesFocusedConnection && recoveryButton) {
+          // Back/Forward restores scroll after popstate. Reveal recovered
+          // focus afterward, unless the user has already moved elsewhere.
+          requestAnimationFrame(() => {
+            if (document.activeElement === recoveryButton) {
+              recoveryButton.scrollIntoView({behavior: 'instant', block: 'nearest'});
+            }
+          });
+        }
+      }
+      setRequestedView(view);
       // A browser navigation already owns this URL. Do not push it back onto
       // history when its selection commits, including malformed fragments.
       locationFocus.current = target === state.focusedId ? undefined : target;

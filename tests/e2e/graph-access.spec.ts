@@ -244,3 +244,57 @@ for (const {id, detail} of [
     await expect(list(page)).toContainText(detail);
   });
 }
+
+test('selection-only history recovers focus from disappearing text connections', async ({page}) => {
+  await page.goto('/graph?view=list#node=skill%3Apython');
+  const python = list(page).getByRole('button', {name: 'Python', exact: true});
+  const bash = list(page).getByRole('button', {name: 'Bash', exact: true});
+  await bash.click();
+  await page.keyboard.press('Tab');
+  await expect(page.locator(':focus')).toContainText('connection 1 of');
+  await page.goBack();
+  await expect(python).toHaveAttribute('aria-expanded', 'true');
+  await expect(textView(page)).toBeFocused();
+  await expectVisibleFocus(page);
+
+  await python.focus();
+  await page.keyboard.press('Tab');
+  await expect(page.locator(':focus')).toContainText('connection 1 of');
+  await page.goForward();
+  await expect(bash).toHaveAttribute('aria-expanded', 'true');
+  await expect(textView(page)).toBeFocused();
+  await expectVisibleFocus(page);
+});
+
+test('selection-only history recovers text connection focus when deselecting', async ({page}) => {
+  await page.goto('/graph?view=3d#node=skill%3Apython');
+  await expectThreeDimensionalView(page);
+  await page.getByRole('button', {name: 'Deselect node', exact: true}).click();
+  await textView(page).click();
+  await expect(page).toHaveURL(/view=list$/);
+  const python = list(page).getByRole('button', {name: 'Python', exact: true});
+  await python.click();
+  await page.keyboard.press('Tab');
+  await expect(page.locator(':focus')).toContainText('connection 1 of');
+  await page.goBack();
+  await expect(list(page).locator('button[aria-current="true"]')).toHaveCount(0);
+  await expect(textView(page)).toBeFocused();
+  await expectVisibleFocus(page);
+});
+
+for (const control of ['entry', 'mode']) {
+  test(`selection-only history keeps focus on a persistent ${control} control`, async ({page}) => {
+    await page.goto('/graph?view=list#node=skill%3Apython');
+    const python = list(page).getByRole('button', {name: 'Python', exact: true});
+    const bash = list(page).getByRole('button', {name: 'Bash', exact: true});
+    await bash.click();
+    const persistentControl = control === 'entry' ? python : textView(page);
+    await persistentControl.focus();
+    await page.goBack();
+    await expect(python).toHaveAttribute('aria-expanded', 'true');
+    await expect(persistentControl).toBeFocused();
+    await page.goForward();
+    await expect(bash).toHaveAttribute('aria-expanded', 'true');
+    await expect(persistentControl).toBeFocused();
+  });
+}
