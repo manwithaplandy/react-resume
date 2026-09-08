@@ -39,18 +39,30 @@ const parseNodeHash = (hash: string): string | null => {
   if (!result) {
     return null;
   }
-  const id = decodeURIComponent(result[1]);
-  return resumeGraph.nodeById.has(id) ? id : null;
+  try {
+    const id = decodeURIComponent(result[1]);
+    return resumeGraph.nodeById.has(id) ? id : null;
+  } catch {
+    return null;
+  }
 };
 
 /**
  * Owns the single navigation store that drives all three renderers (canvas,
- * focus card, accessible tree), plus WebGL detection, the keyboard model,
+ * focus card, text list), plus WebGL detection, the keyboard model,
  * URL-hash deep links, reduced-motion handling and the onboarding chrome.
  */
 const GraphExplorer: FC = memo(() => {
   const [state, dispatch] = useReducer(graphNavReducer, initialFocusId, initialGraphNavState);
-  const [mode, setMode] = useState<RenderMode>('detecting');
+  const [capability, setCapability] = useState<'detecting' | 'supported' | 'unsupported' | 'performance'>('detecting');
+  const [requestedView, setRequestedView] = useState<'3d' | 'list'>('3d');
+  const mode: RenderMode =
+    capability === 'detecting' ? 'detecting' : requestedView === 'list' || capability !== 'supported' ? 'list' : '3d';
+  const listReason = requestedView === 'list' ? 'chosen' : capability === 'performance' ? 'performance' : 'unsupported';
+  const textViewRef = useRef<HTMLButtonElement>(null);
+  const experienceRef = useRef<HTMLDivElement>(null);
+  const threeViewRef = useRef<HTMLButtonElement>(null);
+  const locationFocus = useRef<string | null | undefined>(undefined);
   const [systemReducedMotion, setSystemReducedMotion] = useState(false);
   const [manualReducedMotion, setManualReducedMotion] = useState(false);
   const [hintDismissed, setHintDismissed] = useState(true);
@@ -63,12 +75,17 @@ const GraphExplorer: FC = memo(() => {
 
   // --- WebGL detect + hash deep link + hint state, once on mount ------------
   useEffect(() => {
-    setMode(detectWebGL() ? '3d' : 'list');
+    setCapability(detectWebGL() ? 'supported' : 'unsupported');
+    setRequestedView(new URLSearchParams(window.location.search).get('view') === 'list' ? 'list' : '3d');
     const fromHash = parseNodeHash(window.location.hash);
     if (fromHash) {
       dispatch({id: fromHash, type: 'focusNode'});
     }
-    setHintDismissed(window.localStorage.getItem(HINT_DISMISSED_KEY) === 'true');
+    try {
+      setHintDismissed(window.localStorage.getItem(HINT_DISMISSED_KEY) === 'true');
+    } catch {
+      setHintDismissed(false);
+    }
   }, []);
 
   // --- prefers-reduced-motion ------------------------------------------------
@@ -86,7 +103,7 @@ const GraphExplorer: FC = memo(() => {
       // Only act when focus is within the 3D application region; otherwise the
       // global arrow/Backspace capture would steal keys from the rest of the
       // page (and from the reducer-driven list fallback, which has its own
-      // focusable tree). The container is focusable (tabIndex=0), so focusing
+      // ordinary buttons). The container is focusable (tabIndex=0), so focusing
       // it or any child counts.
       const container = applicationRef.current;
       if (!container || !(document.activeElement && container.contains(document.activeElement))) {
@@ -130,10 +147,17 @@ const GraphExplorer: FC = memo(() => {
   // --- URL hash sync: deep links + browser Back navigates the focus trail ----
   const hashSyncedOnce = useRef(false);
   useEffect(() => {
+    if (locationFocus.current === state.focusedId) {
+      locationFocus.current = undefined;
+      return;
+    }
     const desired = state.focusedId ? `#node=${encodeURIComponent(state.focusedId)}` : '';
     const firstSync = !hashSyncedOnce.current;
     hashSyncedOnce.current = true;
-    if (window.location.hash === desired) {
+    if (
+      window.location.hash === desired ||
+      (state.focusedId && parseNodeHash(window.location.hash) === state.focusedId)
+    ) {
       return;
     }
     // A deep-link hash whose focusNode dispatch (mount effect) hasn't
@@ -153,21 +177,26 @@ const GraphExplorer: FC = memo(() => {
     }
   }, [state.focusedId]);
   useEffect(() => {
-    const handleHashChange = () => {
-      const fromHash = parseNodeHash(window.location.hash);
-      if (fromHash) {
-        dispatch({id: fromHash, type: 'focusNode'});
-      } else if (!window.location.hash) {
-        dispatch({type: 'deselect'});
+    const handleLocationChange = () => {
+      const view = new URLSearchParams(window.location.search).get('view') === 'list' ? 'list' : '3d';
+      if (view !== requestedView && experienceRef.current?.contains(document.activeElement)) {
+        (view === 'list' || capability !== 'supported' ? textViewRef : threeViewRef).current?.focus();
       }
+      setRequestedView(view);
+      const fromHash = parseNodeHash(window.location.hash);
+      const target = fromHash ?? (window.location.hash ? initialFocusId : null);
+      // A browser navigation already owns this URL. Do not push it back onto
+      // history when its selection commits, including malformed fragments.
+      locationFocus.current = target === state.focusedId ? undefined : target;
+      dispatch(target ? {id: target, type: 'focusNode'} : {type: 'deselect'});
     };
-    window.addEventListener('hashchange', handleHashChange);
-    window.addEventListener('popstate', handleHashChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    window.addEventListener('popstate', handleLocationChange);
     return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-      window.removeEventListener('popstate', handleHashChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+      window.removeEventListener('popstate', handleLocationChange);
     };
-  }, []);
+  }, [capability, requestedView, state.focusedId]);
 
   // --- debounced aria-live announcements -------------------------------------
   useEffect(() => {
@@ -197,17 +226,38 @@ const GraphExplorer: FC = memo(() => {
 
   const handleDismissHint = useCallback(() => {
     setHintDismissed(true);
-    window.localStorage.setItem(HINT_DISMISSED_KEY, 'true');
+    try {
+      window.localStorage.setItem(HINT_DISMISSED_KEY, 'true');
+    } catch {
+      // The in-memory choice remains usable when storage is denied.
+    }
   }, []);
   // Reopen the one-shot onboarding hint; the "Controls / ?" pill makes the
   // dismissed-forever hint recoverable.
   const handleShowHint = useCallback(() => {
     setHintDismissed(false);
-    window.localStorage.removeItem(HINT_DISMISSED_KEY);
+    try {
+      window.localStorage.removeItem(HINT_DISMISSED_KEY);
+    } catch {
+      // The in-memory choice remains usable when storage is denied.
+    }
   }, []);
   // WebGL existing isn't the same as WebGL being usable — the canvas's FPS
   // probe reports back so a too-slow device falls back to the list view.
-  const handlePerformanceFallback = useCallback(() => setMode('list'), []);
+  const handlePerformanceFallback = useCallback(() => {
+    threeViewRef.current?.focus();
+    setCapability('performance');
+  }, []);
+  const handleChooseView = useCallback((view: '3d' | 'list') => {
+    setRequestedView(view);
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('view') !== view) {
+      url.searchParams.set('view', view);
+      window.history.pushState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+  }, []);
+  const handleTextView = useCallback(() => handleChooseView('list'), [handleChooseView]);
+  const handleThreeView = useCallback(() => handleChooseView('3d'), [handleChooseView]);
   const handleToggleLegend = useCallback(() => setLegendOpen(open => !open), []);
   const handleToggleMotion = useCallback(() => setManualReducedMotion(value => !value), []);
 
@@ -226,6 +276,25 @@ const GraphExplorer: FC = memo(() => {
         {announcement}
       </p>
 
+      <div aria-label="Graph view" className="flex gap-x-2 px-4 pb-4 pt-40 sm:px-6" role="group">
+        <button
+          aria-pressed={mode === 'list'}
+          className={PILL_BUTTON_CLASS}
+          onClick={handleTextView}
+          ref={textViewRef}
+          type="button">
+          Text view
+        </button>
+        <button
+          aria-pressed={mode === '3d'}
+          className={PILL_BUTTON_CLASS}
+          onClick={handleThreeView}
+          ref={threeViewRef}
+          type="button">
+          3D view
+        </button>
+      </div>
+
       {match(mode)
         .with('detecting', () => (
           <div className="relative h-[100svh]">
@@ -233,7 +302,7 @@ const GraphExplorer: FC = memo(() => {
           </div>
         ))
         .with('3d', () => (
-          <div className="relative h-[100svh] print:hidden">
+          <div className="relative h-[100svh] print:hidden" ref={experienceRef}>
             <div
               aria-label="Interactive 3D career graph. Use left and right arrows to scan connections, up arrow to dive in, down arrow to go back, Escape to deselect."
               aria-roledescription="3D career graph"
@@ -325,15 +394,11 @@ const GraphExplorer: FC = memo(() => {
             )}
 
             <FocusPanel dispatch={dispatch} state={state} />
-
-            {/* Parallel accessible tree: always rendered, drives the same store. */}
-            <GraphListFallback dispatch={dispatch} state={state} visible={false} />
           </div>
         ))
         .with('list', () => (
-          // Top padding clears the absolutely-positioned headline overlay.
-          <div className="pb-12 pt-40 sm:pt-36">
-            <GraphListFallback dispatch={dispatch} state={state} visible />
+          <div className="pb-12" ref={experienceRef}>
+            <GraphListFallback dispatch={dispatch} reason={listReason} state={state} />
           </div>
         ))
         .exhaustive()}
