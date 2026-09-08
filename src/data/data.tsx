@@ -85,7 +85,7 @@ export const heroData: Hero = {
   actions: [
     {
       href: '/assets/resume.pdf',
-      text: 'Resume',
+      text: 'Download résumé PDF',
       primary: true,
       download: true,
       Icon: ArrowDownTrayIcon,
@@ -252,7 +252,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: 'andrewmalvani.com',
     description: 'This site — a Next.js static export on AWS. Click for the architecture diagram.',
-    url: porfolioImage2,
+    url: porfolioImage2.src,
     image: porfolioImage2,
   },
   // {

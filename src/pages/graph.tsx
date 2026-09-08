@@ -56,9 +56,10 @@ const Graph: FC = memo(() => {
               </Link>
               <a
                 className="flex items-center gap-x-1 text-neutral-300 hover:text-orange-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                download="Andrew-Malvani-Resume.pdf"
                 href="/assets/resume.pdf">
                 <ArrowDownTrayIcon className="h-3.5 w-3.5" />
-                PDF
+                Download résumé PDF
               </a>
             </div>
           </div>

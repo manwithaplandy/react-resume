@@ -38,7 +38,7 @@ const Header: FC = memo(() => {
       ...navSections.map(section => ({
         current: section === currentSection,
         href: `/#${section}`,
-        label: section,
+        label: section === SectionId.Resume ? 'Experience' : section,
       })),
       {current: router.pathname === '/graph', href: '/graph', label: 'career graph'},
       {current: router.pathname === '/stats', href: '/stats', label: 'analytics'},

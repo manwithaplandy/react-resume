@@ -8,7 +8,7 @@ const threeView = (page: Page) => page.getByRole('button', {name: '3D view', exa
 
 async function expectResumeLinks(page: Page) {
   await expect(page.getByRole('link', {name: 'Classic resume', exact: true})).toBeVisible();
-  await expect(page.getByRole('link', {name: 'PDF', exact: true})).toBeVisible();
+  await expect(page.getByRole('link', {name: 'Download résumé PDF', exact: true})).toBeVisible();
 }
 
 async function expectThreeDimensionalView(page: Page) {

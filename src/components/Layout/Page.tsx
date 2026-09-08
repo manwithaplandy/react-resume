@@ -34,7 +34,7 @@ const websiteSchemaJson = JSON.stringify({
 });
 
 const Page: NextPage<PropsWithChildren<HomepageMeta>> = memo(({children, title, description}) => {
-  const {asPath: pathname} = useRouter();
+  const {pathname} = useRouter();
   const canonical = `${siteUrl}${pathname}`;
 
   return (
@@ -74,7 +74,7 @@ const Page: NextPage<PropsWithChildren<HomepageMeta>> = memo(({children, title, 
         <script dangerouslySetInnerHTML={{__html: personSchemaJson}} key="ld-person" type="application/ld+json" />
         <script dangerouslySetInnerHTML={{__html: websiteSchemaJson}} key="ld-website" type="application/ld+json" />
       </Head>
-      {children}
+      <div id="top">{children}</div>
     </>
   );
 });
