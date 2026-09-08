@@ -113,7 +113,7 @@ jobs:
       - name: Prepare Lambda bootstrap zips
         run: |
           (cd sns_publish_lambda && zip ../terraform/lambda_function.zip lambda_function.py)
-          (cd stats_aggregator && zip ../terraform/stats_aggregator.zip lambda_function.py)
+          (cd stats_aggregator && zip ../terraform/stats_aggregator.zip lambda_function.py payload.py)
 
       - name: Terraform Apply
         run: terraform -chdir=terraform apply "plan/plan.tfplan"
@@ -148,7 +148,9 @@ jobs:
 
   update-lambda-code:
       name: Update Lambda Code
-      needs: terraform-apply
+      # Publish the compatible reader before updating the stats producer.
+      # D4/E5 adds the public/cache verification release prerequisite.
+      needs: update-s3-contents
       runs-on: ubuntu-latest
       environment: "AWS General"
       strategy:
@@ -156,8 +158,10 @@ jobs:
           include:
             - dir: sns_publish_lambda
               function_var: LAMBDA_FUNCTION_NAME
+              package_files: lambda_function.py
             - dir: stats_aggregator
               function_var: STATS_AGGREGATOR_FUNCTION_NAME
+              package_files: lambda_function.py payload.py
       steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -171,7 +175,7 @@ jobs:
       - name: Zip Lambda Code
         run: |
           cd ${{ matrix.dir }}
-          zip ../lambda_code.zip lambda_function.py
+          zip ../lambda_code.zip ${{ matrix.package_files }}
 
       - name: Update Lambda Code
         run: aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME --zip-file fileb://lambda_code.zip

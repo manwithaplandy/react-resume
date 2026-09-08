@@ -35,8 +35,16 @@ resource "aws_lambda_function" "stats_aggregator" {
 
 data "archive_file" "stats_aggregator_function" {
   type        = "zip"
-  source_file = "../stats_aggregator/lambda_function.py"
   output_path = "stats_aggregator.zip"
+
+  source {
+    content  = file("${path.module}/../stats_aggregator/lambda_function.py")
+    filename = "lambda_function.py"
+  }
+  source {
+    content  = file("${path.module}/../stats_aggregator/payload.py")
+    filename = "payload.py"
+  }
 }
 
 locals {
@@ -182,13 +190,12 @@ resource "aws_cloudwatch_log_group" "form_submission" {
   retention_in_days = 30
 }
 
-# Cloudflare-fetch guard: the aggregator publishes stats.json from CloudFront
-# data before raising on a Cloudflare failure, so an error here means the
-# Cloudflare uniques/countries are lagging — not that stats.json stopped
-# updating. Page the owner via the existing contact-us SNS email topic.
+# Any invocation failure needs investigation. Recoverable source failures
+# publish independent available data first; storage/ingestion/publication
+# failures can prevent that. Alert through the existing contact-us topic.
 resource "aws_cloudwatch_metric_alarm" "stats_aggregator_errors" {
   alarm_name          = "stats-aggregator-errors"
-  alarm_description   = "The stats aggregator Lambda's Cloudflare analytics fetch failed. stats.json still publishes on schedule with CloudFront-derived stats; only Cloudflare uniques/countries lag until a successful run. Usually transient - if the alarm self-cleared, Lambda's async auto-retry already recovered."
+  alarm_description   = "The stats aggregator invocation failed or a source refresh was incomplete. Recoverable source failures publish independently available data before raising; storage or publication failures can prevent an update. Check per-source freshness in stats.json and the invocation logs. A cleared alarm alone does not prove every source recovered."
   namespace           = "AWS/Lambda"
   metric_name         = "Errors"
   statistic           = "Sum"

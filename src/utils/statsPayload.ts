@@ -96,7 +96,7 @@ const normalizeSource = (value: unknown, expectedScope: SourceScope, today: stri
   if (!datesValid || !statusValid || scope !== expectedScope) {
     return unavailableSource(expectedScope);
   }
-  if ((status === 'current' || status === 'stale') && !isRealDate(lastSuccessfulUpdate)) {
+  if (status === 'current' && !isRealDate(lastSuccessfulUpdate)) {
     return unavailableSource(expectedScope);
   }
 

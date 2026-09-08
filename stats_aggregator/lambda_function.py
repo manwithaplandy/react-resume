@@ -29,6 +29,14 @@ from datetime import date, datetime, timedelta, timezone
 
 import boto3
 
+# Package import in tests; flat import in the deployed two-file archive.
+if __package__:
+    from .payload import (DOMAIN_RE, IPV4_RE, ISO_COUNTRY_RE, PAGE_STEM_RE,
+                          SOURCE_SCOPES, parse_count, render_payload, source_measurements, valid_day)
+else:
+    from payload import (DOMAIN_RE, IPV4_RE, ISO_COUNTRY_RE, PAGE_STEM_RE,
+                         SOURCE_SCOPES, parse_count, render_payload, source_measurements, valid_day)
+
 # Clients at module scope so they are reused across warm invocations.
 s3 = boto3.client("s3")
 dynamodb = boto3.client("dynamodb")
@@ -49,10 +57,6 @@ STATS_KEY = "stats.json"
 # lifecycle expires those after 90 days) — once an object is gone it cannot be
 # reprocessed, so the marker has nothing left to guard.
 MARKER_TTL_DAYS = 120
-
-K_ANONYMITY_FLOOR = 5
-TOP_N = 5
-DAILY_SERIES_DAYS = 30
 
 # Stop pulling new log objects when this little time remains so the final
 # flush + Cloudflare query + stats.json render always complete.
@@ -76,17 +80,6 @@ BOT_UA_SUBSTRINGS = (
     "http-client",
     "httpclient",
 )
-
-# Strict hostname shape — referrer labels must match this before they can be
-# stored, and the frontend re-validates before rendering.
-DOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)+$")
-# Bare IPv4 hosts match DOMAIN_RE but must never be published ("no IPs in the
-# payload" — even server IPs sent as referrers by scrapers look like a leak).
-IPV4_RE = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
-ISO_COUNTRY_RE = re.compile(r"^[A-Z]{2}$")
-DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-# Page labels: normalized URI stems only — conservative charset, bounded length.
-PAGE_STEM_RE = re.compile(r"^/[A-Za-z0-9/_.-]{0,99}$")
 
 OWN_DOMAINS = {"andrewmalvani.com"}
 
@@ -229,7 +222,7 @@ def _tally_log_lines(text, pending):
             continue
         if not (stem.endswith(".html") or stem.endswith("/")):
             continue
-        if not DATE_RE.match(date) or _looks_like_bot(user_agent):
+        if not valid_day(date) or _looks_like_bot(user_agent):
             continue
 
         views += 1
@@ -262,6 +255,7 @@ def _ingest_cloudfront_logs(context):
     pending = Counter()
     processed = 0
     truncated = False
+    failed_objects = False
     last_seen = ""
     list_kwargs = {"Bucket": LOG_BUCKET, "Prefix": LOG_PREFIX}
     start_after = _read_cursor_start_after()
@@ -285,6 +279,7 @@ def _ingest_cloudfront_logs(context):
             except Exception as exc:  # noqa: BLE001 — one bad object must not kill the run
                 # Marker-first by design: a failed object is skipped forever
                 # (slight undercount) rather than risking a double-count.
+                failed_objects = True
                 print(f"WARN: skipping unparseable log object {key}: {type(exc).__name__}")
             processed += 1
             if processed % FLUSH_EVERY_N_OBJECTS == 0:
@@ -295,71 +290,76 @@ def _ingest_cloudfront_logs(context):
     _flush(pending)
     if last_seen:
         _write_cursor(last_seen)
-    return processed, truncated
+    return processed, truncated, failed_objects
+
+
+def _cloudflare_items(body, today):
+    """Validate the complete response before writing any daily measurement."""
+    if not isinstance(body, dict) or body.get("errors"):
+        raise ValueError("Cloudflare API error")
+    zones = body["data"]["viewer"]["zones"]
+    if not isinstance(zones, list) or len(zones) != 1:
+        raise ValueError("Cloudflare zone results unavailable")
+    groups = zones[0]["httpRequests1dGroups"]
+    if not isinstance(groups, list) or not groups or len(groups) > 7:
+        raise ValueError("Cloudflare daily results unavailable")
+    items = []
+    seen = set()
+    since, until = (today - timedelta(days=7)).isoformat(), (today - timedelta(days=1)).isoformat()
+    for group in groups:
+        day = group["dimensions"]["date"]
+        if not valid_day(day) or not since <= day <= until or day in seen:
+            raise ValueError("Invalid Cloudflare observation day")
+        seen.add(day)
+        raw_uniques = group["uniq"]["uniques"]
+        uniques = parse_count(raw_uniques)
+        if isinstance(raw_uniques, bool) or not isinstance(raw_uniques, (int, float)) or uniques is None:
+            raise ValueError("Invalid Cloudflare daily unique count")
+        entries = group["sum"]["countryMap"]
+        if not isinstance(entries, list):
+            raise ValueError("Invalid Cloudflare country results")
+        countries = Counter()
+        for entry in entries:
+            code = entry["clientCountryName"]
+            if not isinstance(code, str) or not ISO_COUNTRY_RE.fullmatch(code):
+                continue
+            raw_requests = entry["requests"]
+            requests = parse_count(raw_requests)
+            if isinstance(raw_requests, bool) or not isinstance(raw_requests, (int, float)) or requests is None:
+                raise ValueError("Invalid Cloudflare country count")
+            countries[code] += requests
+        items.append({**_ddb_id(f"cf#daily#{day}"), "uniques": {"N": str(uniques)},
+                      "countries": {"S": json.dumps(countries, sort_keys=True)}})
+    return items
 
 
 def _fetch_cloudflare_daily(today):
-    """Pull uniques + per-country requests for the last 7 days from Cloudflare.
+    """One recoverable source outcome, including configuration and token read.
 
-    Cloudflare aggregates these at the edge, so no PII enters our pipeline.
-    Stored per-day as cf#daily# items; overwriting with the same window is
-    idempotent. Returns True on success, False on failure (the caller raises
-    after stats.json is published so the error alarm still fires).
+    No failure advances this source's success date. The caller publishes the
+    independently available data before raising for a configured-source failure.
     """
     if not CF_ZONE_ID or not CF_TOKEN_SSM_PARAM:
-        print("WARN: Cloudflare zone/token not configured; skipping uniques/countries")
-        return True
-
-    token = ssm.get_parameter(Name=CF_TOKEN_SSM_PARAM, WithDecryption=True)["Parameter"]["Value"]
-    payload = json.dumps(
-        {
-            "query": CLOUDFLARE_QUERY,
-            "variables": {
-                "zone": CF_ZONE_ID,
-                "since": (today - timedelta(days=7)).isoformat(),
-                "until": (today - timedelta(days=1)).isoformat(),
-            },
-        }
-    ).encode("utf-8")
-    request = urllib.request.Request(
-        CLOUDFLARE_GRAPHQL_URL,
-        data=payload,
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        method="POST",
-    )
+        print("WARN: Cloudflare zone/token not configured; source not refreshed")
+        return False
     try:
+        token = ssm.get_parameter(Name=CF_TOKEN_SSM_PARAM, WithDecryption=True)["Parameter"]["Value"]
+        if not isinstance(token, str) or not token.strip():
+            raise ValueError("Cloudflare token unavailable")
+        payload = json.dumps({"query": CLOUDFLARE_QUERY, "variables": {
+            "zone": CF_ZONE_ID, "since": (today - timedelta(days=7)).isoformat(),
+            "until": (today - timedelta(days=1)).isoformat(),
+        }}).encode("utf-8")
+        request = urllib.request.Request(CLOUDFLARE_GRAPHQL_URL, data=payload,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}, method="POST")
         with urllib.request.urlopen(request, timeout=20) as response:
-            body = json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
-        print(f"ERROR: Cloudflare analytics query failed: {type(exc).__name__}")
+            items = _cloudflare_items(json.loads(response.read().decode("utf-8")), today)
+        for item in items:
+            dynamodb.put_item(TableName=TABLE_NAME, Item=item)
+    except Exception as exc:  # one source boundary; details may contain tokens/API content
+        print(f"ERROR: Cloudflare source refresh failed: {type(exc).__name__}")
         return False
-
-    if body.get("errors"):
-        # GraphQL errors carry no request PII; safe and useful to log.
-        print(f"ERROR: Cloudflare analytics query returned errors: {body['errors']}")
-        return False
-
-    zones = (body.get("data") or {}).get("viewer", {}).get("zones") or []
-    groups = zones[0].get("httpRequests1dGroups", []) if zones else []
-    for group in groups:
-        date = group.get("dimensions", {}).get("date", "")
-        if not DATE_RE.match(date):
-            continue
-        uniques = int(group.get("uniq", {}).get("uniques") or 0)
-        countries = {}
-        for entry in group.get("sum", {}).get("countryMap") or []:
-            code = str(entry.get("clientCountryName", ""))
-            if ISO_COUNTRY_RE.match(code):
-                countries[code] = int(entry.get("requests") or 0)
-        dynamodb.put_item(
-            TableName=TABLE_NAME,
-            Item={
-                **_ddb_id(f"cf#daily#{date}"),
-                "uniques": {"N": str(uniques)},
-                "countries": {"S": json.dumps(countries)},
-            },
-        )
-    print(f"INFO: stored Cloudflare analytics for {len(groups)} day(s)")
+    print(f"INFO: stored Cloudflare analytics for {len(items)} day(s)")
     return True
 
 
@@ -367,103 +367,68 @@ def _scan_aggregates():
     """Read every aggregate item back (the table holds a few hundred items)."""
     items = []
     paginator = dynamodb.get_paginator("scan")
-    for page in paginator.paginate(TableName=TABLE_NAME):
+    for page in paginator.paginate(TableName=TABLE_NAME, ConsistentRead=True):
         items.extend(page.get("Items", []))
     return items
 
 
-def _top_with_other(counts, label_is_valid):
-    """Apply the k-anonymity floor and keep the top N buckets.
+def _source_state(items, name, succeeded, today):
+    coverage = source_measurements(items, today)[name]
+    previous = next((item for item in items if item.get("id", {}).get("S") == f"source#{name}"), None)
 
-    Buckets below the floor — plus anything beyond the top N — collapse into
-    a single "Other" bucket so no small (potentially identifying) bucket is
-    ever published.
-    """
-    eligible = {k: v for k, v in counts.items() if v >= K_ANONYMITY_FLOOR and label_is_valid(k)}
-    ranked = sorted(eligible.items(), key=lambda kv: (-kv[1], kv[0]))
-    top = ranked[:TOP_N]
-    other = sum(v for k, v in counts.items() if label_is_valid(k)) - sum(v for _, v in top)
-    result = [{"label": k, "value": v} for k, v in top]
-    if other > 0:
-        result.append({"label": "Other", "value": other})
-    return result
+    def previous_day(field):
+        value = previous.get(field, {}).get("S") if previous else None
+        return value if valid_day(value) else None
 
-
-def _render_payload(items, today):
-    totals = 0
-    daily = {}
-    pages = Counter()
-    referrers = Counter()
-    cf_uniques = 0
-    cf_countries = Counter()
-
-    for item in items:
-        item_id = item.get("id", {}).get("S", "")
-        count = int(item.get("count", {}).get("N", "0")) if "count" in item else 0
-        if item_id == "total#views":
-            totals = count
-        elif item_id.startswith("daily#"):
-            date = item_id[len("daily#") :]
-            if DATE_RE.match(date):
-                daily[date] = count
-        elif item_id.startswith("page#"):
-            pages[item_id[len("page#") :]] += count
-        elif item_id.startswith("referrer#"):
-            referrers[item_id[len("referrer#") :]] += count
-        elif item_id.startswith("cf#daily#"):
-            cf_uniques += int(item.get("uniques", {}).get("N", "0"))
-            try:
-                stored = json.loads(item.get("countries", {}).get("S", "{}"))
-            except ValueError:
-                stored = {}
-            for code, requests in stored.items():
-                if ISO_COUNTRY_RE.match(str(code)):
-                    cf_countries[str(code)] += int(requests)
-
-    series_start = today - timedelta(days=DAILY_SERIES_DAYS - 1)
-    daily_series = [
-        {"date": (series_start + timedelta(days=offset)).isoformat(), "views": daily.get((series_start + timedelta(days=offset)).isoformat(), 0)}
-        for offset in range(DAILY_SERIES_DAYS)
-    ]
-
+    status = "current" if succeeded else "stale"
+    if not coverage["available"]:
+        status = "unavailable"
+    # With legacy measurements there is no historical execution timestamp to
+    # recover. Preserve the real observation bounds and leave success unknown.
     return {
-        "totalViews": totals,
-        "lastUpdated": today.isoformat(),
-        "since": min(daily) if daily else today.isoformat(),
-        "dailySeries": daily_series,
-        "topPages": _top_with_other(pages, lambda k: bool(PAGE_STEM_RE.match(k))),
-        "topReferrers": _top_with_other(referrers, lambda k: bool(DOMAIN_RE.match(k)) and not IPV4_RE.match(k)),
-        "uniqueVisitors": cf_uniques,
-        "countries": _top_with_other(cf_countries, lambda k: bool(ISO_COUNTRY_RE.match(k))),
+        "status": status,
+        "scope": SOURCE_SCOPES[name],
+        "since": coverage["since"] if succeeded or previous is None else previous_day("since"),
+        "through": coverage["through"] if succeeded or previous is None else previous_day("through"),
+        "lastSuccessfulUpdate": today.isoformat() if succeeded else previous_day("lastSuccessfulUpdate"),
     }
+
+
+def _persist_source(name, source):
+    item = {**_ddb_id(f"source#{name}"), **{
+        key: {"NULL": True} if value is None else {"S": value} for key, value in source.items()
+    }}
+    dynamodb.put_item(TableName=TABLE_NAME, Item=item)
 
 
 def lambda_handler(event, context):
     today = datetime.now(timezone.utc).date()
-
-    processed, truncated = _ingest_cloudfront_logs(context)
+    processed, truncated = 0, False
+    try:
+        processed, truncated, failed_objects = _ingest_cloudfront_logs(context)
+        cloudfront_ok = not truncated and not failed_objects
+    except Exception as exc:
+        cloudfront_ok = False
+        print(f"ERROR: CloudFront source refresh failed: {type(exc).__name__}")
     print(f"INFO: processed {processed} new log object(s); truncated={truncated}")
 
     cloudflare_ok = _fetch_cloudflare_daily(today)
-
-    payload = _render_payload(_scan_aggregates(), today)
+    items = _scan_aggregates()
+    sources = {
+        "cloudfront": _source_state(items, "cloudfront", cloudfront_ok, today),
+        "cloudflare": _source_state(items, "cloudflare", cloudflare_ok, today),
+    }
+    for name, source in sources.items():
+        _persist_source(name, source)
+    payload = render_payload(items, today, sources)
     s3.put_object(
-        Bucket=WEBSITE_BUCKET,
-        Key=STATS_KEY,
+        Bucket=WEBSITE_BUCKET, Key=STATS_KEY,
         Body=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
-        ContentType="application/json",
-        CacheControl="max-age=3600",
+        ContentType="application/json", CacheControl="max-age=3600",
     )
     print(f"INFO: published {STATS_KEY}: totalViews={payload['totalViews']}, uniqueVisitors={payload['uniqueVisitors']}")
-
-    # Raised only after stats.json is published, so a Cloudflare outage still
-    # refreshes the CloudFront-derived metrics *and* trips the error alarm
-    # instead of going silently stale.
-    if not cloudflare_ok:
-        raise RuntimeError("Cloudflare analytics query failed (see logs)")
-
-    return {
-        "processedObjects": processed,
-        "truncated": truncated,
-        "totalViews": payload["totalViews"],
-    }
+    # Fully absent optional configuration is visible as unavailable/stale,
+    # without a recurring alarm. Partial configuration is a configured failure.
+    if not cloudfront_ok or (not cloudflare_ok and (CF_ZONE_ID or CF_TOKEN_SSM_PARAM)):
+        raise RuntimeError("Analytics source refresh incomplete (see source status and logs)")
+    return {"processedObjects": processed, "truncated": truncated, "totalViews": payload["totalViews"]}

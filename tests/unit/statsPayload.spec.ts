@@ -137,3 +137,20 @@ test('a frozen payload eventually looks stale', () => {
   expect(model?.edgeSource.status).toBe('stale');
   expect(model?.documentSource.status).toBe('stale');
 });
+
+test('stale migrated measurements may have unknown success timing while current requires a success date', () => {
+  const migrated = {
+    ...current,
+    sources: {
+      ...current.sources,
+      cloudflare: {...current.sources.cloudflare, status: 'stale', lastSuccessfulUpdate: null},
+    },
+  };
+  const stale = normalizeStatsPayload(migrated, '2026-09-08');
+  expect(stale?.dailyUniqueVisits).toBe(2);
+  expect(stale?.edgeSource.status).toBe('stale');
+  expect(stale?.edgeSource.lastSuccessfulUpdate).toBeNull();
+  expect(stale?.edgeSource.since).toBe('2026-09-02');
+  migrated.sources.cloudflare.status = 'current';
+  expect(normalizeStatsPayload(migrated, '2026-09-08')?.edgeSource.status).toBe('unavailable');
+});
