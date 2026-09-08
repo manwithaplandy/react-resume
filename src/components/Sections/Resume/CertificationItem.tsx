@@ -33,7 +33,7 @@ const CertificationItem: FC<{certification: Certification}> = memo(({certificati
       <div className="flex flex-col justify-center">
         <h3 className="text-lg font-semibold text-neutral-100">{name}</h3>
         <p className="text-sm font-medium text-neutral-400">{issuer}</p>
-        <p className="text-sm text-neutral-500">{date}</p>
+        <p className="text-sm text-neutral-400">{date}</p>
       </div>
     </SpotlightCard>
   );

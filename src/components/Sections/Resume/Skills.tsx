@@ -42,8 +42,8 @@ export const Skill: FC<{skill: SkillType}> = memo(({skill}) => {
   const tier = tierForLevel(level, max);
 
   return (
-    <div className="flex items-center justify-between gap-x-3">
-      <span className="text-sm font-medium text-neutral-200">{name}</span>
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <span className="min-w-0 break-words text-sm font-medium text-neutral-200">{name}</span>
       <div className="flex shrink-0 items-center gap-x-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-orange-400">{tier.label}</span>
         <div aria-hidden="true" className="flex gap-x-1">
