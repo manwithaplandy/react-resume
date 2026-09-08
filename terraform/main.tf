@@ -114,13 +114,6 @@ resource "aws_s3_bucket" "log_bucket" {
   bucket = "${random_pet.bucket_name.id}-log-bucket"
 }
 
-resource "aws_s3_bucket_logging" "log_bucket_logs" {
-  bucket = aws_s3_bucket.log_bucket.id
-
-  target_bucket = "${random_pet.bucket_name.id}-log-bucket"
-  target_prefix = "this-bucket-log/"
-}
-
 resource "aws_s3_bucket_versioning" "log_bucket_versioning" {
   bucket = aws_s3_bucket.log_bucket.id
   versioning_configuration {
@@ -170,10 +163,10 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_logs" {
   })
 }
 
-# Lifecycle rules for the log bucket: access logs accumulate forever
-# otherwise (they had been since 2024). 90 days is plenty — the stats
-# aggregator folds each log object into DynamoDB within a day of delivery,
-# and its marker# items prevent any reprocessing window issues.
+# Lifecycle rules keep current access-log objects eligible for expiration after
+# 90 days and noncurrent versions eligible after 30 noncurrent days. Eligibility
+# does not guarantee exact deletion timing or establish that history can be
+# reconstructed after objects expire.
 resource "aws_s3_bucket_lifecycle_configuration" "log_bucket_lifecycle" {
   bucket = aws_s3_bucket.log_bucket.id
 

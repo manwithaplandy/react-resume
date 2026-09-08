@@ -16,14 +16,34 @@ The local tests include event fields containing `%20`, `%2B`, `%26`, `%25`, and 
 
 The static export contains a dark/orange `404.html` with a clear `Page not found` heading, links to the résumé and contact section, a specific document title, and `noindex, nofollow` robots metadata. Local preview checks require an actual HTTP 404 and 320-pixel fit.
 
-CloudFront maps both S3 missing-object forms to the checked document:
+CloudFront maps origin 403 and 404 responses to the checked document:
 
 | Origin response | Response document | Viewer status | Error cache TTL |
 | --- | --- | --- | --- |
 | 403 | `/404.html` | 404 | 10 seconds |
 | 404 | `/404.html` | 404 | 10 seconds |
 
-This translation applies only to missing responses. Successful pages, static extension paths, resource identities, origin selection, and the existing cache behavior remain unchanged.
+This translation applies to any origin 403 or 404 response, including permission failures. Successful pages, static extension paths, resource identities, origin selection, and the existing cache behavior remain unchanged. The known-asset post-release check guards against hiding a broader origin-permission failure behind the recovery page.
+
+## Access-log self-targeting
+
+The log bucket remains the destination for website access logs under `website-log/` and CloudFront logs under `cloudfront-logs/`. Its bucket, stored objects, versioning, bucket policy, ownership controls, three lifecycle rules, and all Terraform resource identities remain in place. The only relationship removed by E2 is the log bucket writing S3 access logs about itself back into `this-bucket-log/`.
+
+The controller verified the live self-target on 2026-09-08 using read-only `GetBucketLogging`: `mostly-upward-lion-log-bucket` targeted itself with prefix `this-bucket-log/`. No setting was changed. The existing metadata-only prefix baseline at 2026-09-08 07:17:28 UTC observed:
+
+| Prefix | Current objects observed | Bytes observed | Listing boundary |
+| --- | ---: | ---: | --- |
+| `cloudfront-logs/` | 11,894 | 15,127,314 | Complete 12-page listing |
+| `website-log/` | 71,198 | 58,489,829 | Complete 72-page listing |
+| `this-bucket-log/` | At least 100,000 | At least 113,812,996 | Capped after 100 pages; incomplete |
+
+The listing read object count and size metadata only; it did not fetch log bodies or retain keys. It excluded versions and delete markers and was not an atomic snapshot. The self-log row is a lower bound, not an exact total, growth rate, or savings estimate. A later comparison needs a documented observation window and either a comparable bounded method or a complete justified metric.
+
+The configured lifecycle policy remains enabled for all three prefixes: current objects become eligible for expiration after 90 days, and versions become eligible after 30 days as noncurrent. This is configured policy rather than a physical deletion audit or an exact retention-duration guarantee; noncurrent age starts when a version becomes noncurrent. Expiration also does not prove that analytics history can be reconstructed from remaining objects.
+
+The controller-owned consolidated state-backed plan must classify the E2 action as removal of only `aws_s3_bucket_logging.log_bucket_logs`. Replacement or deletion of the log bucket, stored data, versioning, normal website/CloudFront log delivery, or any lifecycle change fails this scope. No real plan or apply occurred during E2 implementation.
+
+After an authorized release, use read-only checks to confirm the log bucket no longer targets itself while website and CloudFront sources still target the same bucket/prefixes. Existing queued S3 deliveries may arrive briefly. Record the observation interval, then compare subsequent `this-bucket-log/` growth using the stated method; if the interval or measurement is insufficient, leave savings unmeasured rather than infer a number.
 
 ## Release order and gates
 
