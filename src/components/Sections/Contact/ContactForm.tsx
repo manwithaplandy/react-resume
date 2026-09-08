@@ -1,6 +1,6 @@
 import axios from 'axios';
 import classNames from 'classnames';
-import {FC, memo, useCallback, useMemo, useRef, useState} from 'react';
+import {FC, memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
 interface FormData {
   name: string;
@@ -25,6 +25,7 @@ const MAX_EMAIL_LENGTH = 254;
 const MAX_MESSAGE_LENGTH = 2000;
 // Warn once the message gets within this many characters of the cap.
 const COUNTER_WARN_THRESHOLD = 200;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 const FIELD_ORDER: FieldName[] = ['name', 'email', 'message'];
 const FIELD_IDS: Record<FieldName, string> = {
@@ -82,6 +83,17 @@ const ContactForm: FC = memo(() => {
   const [submissionErrors, setSubmissionErrors] = useState<FieldErrors>({});
   const [validationAttempt, setValidationAttempt] = useState(0);
   const fieldRefs = useRef<Partial<Record<FieldName, FieldElement>>>({});
+  const currentAttempt = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      currentAttempt.current?.abort();
+      currentAttempt.current = null;
+    };
+  }, []);
 
   const onChange = useCallback(
     <T extends HTMLInputElement | HTMLTextAreaElement>(event: React.ChangeEvent<T>): void => {
@@ -125,6 +137,13 @@ const ContactForm: FC = memo(() => {
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
+      // State updates do not render synchronously, so own the request with a
+      // ref before doing any work. This also blocks repeated submit events in
+      // the same browser task.
+      if (currentAttempt.current) {
+        return;
+      }
+
       // Run full client-side validation; surface every issue inline at once.
       const nextErrors: FieldErrors = {
         name: validateField('name', data.name),
@@ -146,29 +165,49 @@ const ContactForm: FC = memo(() => {
 
       setSubmissionErrors({});
       setSubmitState('sending');
+      const snapshot: FormData = {
+        name: data.name.trim(),
+        email: data.email.trim(),
+        message: data.message.trim(),
+      };
+      const controller = new AbortController();
+      currentAttempt.current = controller;
 
       try {
-        await axios.post(CONTACT_API_URL, data);
+        await axios.post(CONTACT_API_URL, snapshot, {
+          signal: controller.signal,
+          timeout: REQUEST_TIMEOUT_MS,
+        });
+        if (!mounted.current || currentAttempt.current !== controller) {
+          return;
+        }
         // Preserve nothing on success — a clean form signals completion.
         setData(defaultData);
         setFieldErrors({});
         setSubmissionErrors({});
         setSubmitState('success');
       } catch (error) {
+        if (!mounted.current || currentAttempt.current !== controller || controller.signal.aborted) {
+          return;
+        }
         // axios rejects on non-2xx as well as transport failures. If a response
         // came back, the server was reachable and something failed on its end;
-        // otherwise we never reached the server (offline / CORS / DNS / timeout).
-        // Either way the entered data is preserved so the user can retry.
+        // otherwise delivery is uncertain (offline / CORS / DNS / timeout).
+        // Either way the exact entered draft is preserved so the user can retry.
         const reachedServer = axios.isAxiosError(error) && Boolean(error.response);
         setErrorKind(reachedServer ? 'server' : 'network');
         setSubmitState('error');
+      } finally {
+        if (currentAttempt.current === controller) {
+          currentAttempt.current = null;
+        }
       }
     },
     [data, defaultData],
   );
 
   const inputClasses =
-    'bg-neutral-900 border border-neutral-800 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/30 rounded-lg placeholder:text-neutral-500 placeholder:text-sm text-neutral-200 text-sm transition-colors';
+    'bg-neutral-900 border border-neutral-800 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/30 rounded-lg placeholder:text-neutral-400 placeholder:text-sm text-neutral-200 text-sm transition-colors';
 
   const isSending = submitState === 'sending';
 
@@ -190,7 +229,12 @@ const ContactForm: FC = memo(() => {
   }, []);
 
   return (
-    <form className="grid min-h-[320px] grid-cols-1 gap-y-4" method="POST" noValidate onSubmit={handleSendMessage}>
+    <form
+      aria-busy={isSending}
+      className="grid min-h-[320px] grid-cols-1 gap-y-4"
+      method="POST"
+      noValidate
+      onSubmit={handleSendMessage}>
       {submittedErrorCount > 0 && (
         <div
           aria-atomic="true"
@@ -230,6 +274,7 @@ const ContactForm: FC = memo(() => {
           onBlur={onBlur}
           onChange={onChange}
           placeholder="Your name"
+          readOnly={isSending}
           ref={element => {
             fieldRefs.current.name = element ?? undefined;
           }}
@@ -258,6 +303,7 @@ const ContactForm: FC = memo(() => {
           onBlur={onBlur}
           onChange={onChange}
           placeholder="you@example.com"
+          readOnly={isSending}
           ref={element => {
             fieldRefs.current.email = element ?? undefined;
           }}
@@ -285,6 +331,7 @@ const ContactForm: FC = memo(() => {
           onBlur={onBlur}
           onChange={onChange}
           placeholder="What can I help you with?"
+          readOnly={isSending}
           ref={element => {
             fieldRefs.current.message = element ?? undefined;
           }}
@@ -319,6 +366,11 @@ const ContactForm: FC = memo(() => {
         {isSending ? 'Sending…' : 'Send Message'}
       </button>
       <div aria-live="polite" className="min-h-[1.25rem]">
+        {submitState === 'sending' && (
+          <p className="text-sm font-medium text-neutral-300" role="status">
+            Sending your message. Fields are temporarily read-only.
+          </p>
+        )}
         {submitState === 'success' && (
           <p className="text-sm font-medium text-green-400">
             Message sent — thank you! I&apos;ll get back to you within a few days, or you can email me directly at{' '}
@@ -331,7 +383,14 @@ const ContactForm: FC = memo(() => {
         {submitState === 'error' && (
           <p className="text-sm font-medium text-red-400">
             {errorKind === 'network' ? (
-              "Couldn't reach the server. Check your connection and try again."
+              <>
+                Delivery could not be confirmed. Your message may have been sent. The text is preserved below; you can
+                retry or{' '}
+                <a className="underline hover:text-red-300" href={`mailto:${CONTACT_EMAIL}`}>
+                  email me directly
+                </a>
+                .
+              </>
             ) : (
               <>
                 Something went wrong on my end. Please email me directly at{' '}
