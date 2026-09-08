@@ -1,7 +1,8 @@
 <!--
 Editable source for public/assets/resume.pdf.
-Regenerate from the repository root with:
-  /Users/andrew/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/generate_resume_pdf.py
+Portable setup, generation and required visual/URI review: docs/content/pdf-maintenance.md.
+After installing scripts/requirements-pdf.txt, regenerate from the repository root with:
+  python scripts/generate_resume_pdf.py
 Residence, credential status, credential URLs, and credential year meanings remain pending in docs/content/professional-facts.md.
 -->
 
