@@ -294,15 +294,11 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     origin_request_policy_id   = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
 
-    # Must stay "allow-all" — do NOT change to "redirect-to-https".
-    # Cloudflare proxies in front of this distribution in "Flexible" SSL mode, so
-    # the Cloudflare -> CloudFront hop is plain HTTP. With redirect-to-https,
-    # CloudFront 301-redirects that HTTP request to https://andrewmalvani.com/,
-    # Cloudflare re-fetches over HTTP, and you get an infinite redirect loop
-    # (ERR_TOO_MANY_REDIRECTS — the whole site goes down). HTTPS for viewers is
-    # enforced at the Cloudflare edge ("Always Use HTTPS") instead.
-    # Only revisit this if Cloudflare's SSL/TLS mode is moved to Full (strict),
-    # which makes the Cloudflare -> CloudFront hop HTTPS and breaks the loop.
+    # Keep allow-all until the account's Cloudflare SSL mode and proxy status are
+    # authenticated and a coordinated rollout has verified HTTPS to this origin.
+    # Public redirects show current viewer behavior, not Cloudflare's origin mode.
+    # Tightening this setting alone can create a loop if the upstream still uses
+    # HTTP; docs/operations/delivery.md records the required branches and rollback.
     viewer_protocol_policy = "allow-all"
     # min_ttl                = 0
     # default_ttl            = 3600
