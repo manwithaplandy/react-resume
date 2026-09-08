@@ -1,6 +1,6 @@
 import axios from 'axios';
 import classNames from 'classnames';
-import {FC, memo, useCallback, useMemo, useState} from 'react';
+import {FC, memo, useCallback, useMemo, useRef, useState} from 'react';
 
 interface FormData {
   name: string;
@@ -10,6 +10,7 @@ interface FormData {
 
 type FieldName = keyof FormData;
 type FieldErrors = Partial<Record<FieldName, string>>;
+type FieldElement = HTMLInputElement | HTMLTextAreaElement;
 
 // Public contact API endpoint. Overridable via env for cleanliness; falls back
 // to the deployed endpoint so static builds work without extra config.
@@ -19,9 +20,23 @@ const CONTACT_API_URL =
 // Client-side guard only — the Lambda performs authoritative validation
 // (MAX_MESSAGE_LEN = 2000 in sns_publish_lambda/lambda_function.py). We match
 // that here and warn near the cap instead of silently truncating.
+const MAX_NAME_LENGTH = 100;
+const MAX_EMAIL_LENGTH = 254;
 const MAX_MESSAGE_LENGTH = 2000;
 // Warn once the message gets within this many characters of the cap.
 const COUNTER_WARN_THRESHOLD = 200;
+
+const FIELD_ORDER: FieldName[] = ['name', 'email', 'message'];
+const FIELD_IDS: Record<FieldName, string> = {
+  name: 'contact-name',
+  email: 'contact-email',
+  message: 'contact-message',
+};
+const FIELD_LABELS: Record<FieldName, string> = {
+  name: 'Name',
+  email: 'Email',
+  message: 'Message',
+};
 
 const CONTACT_EMAIL = 'andrewrmalvani@gmail.com';
 
@@ -64,15 +79,33 @@ const ContactForm: FC = memo(() => {
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const [errorKind, setErrorKind] = useState<ErrorKind>('server');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [submissionErrors, setSubmissionErrors] = useState<FieldErrors>({});
+  const [validationAttempt, setValidationAttempt] = useState(0);
+  const fieldRefs = useRef<Partial<Record<FieldName, FieldElement>>>({});
 
   const onChange = useCallback(
     <T extends HTMLInputElement | HTMLTextAreaElement>(event: React.ChangeEvent<T>): void => {
       const {name, value} = event.target;
       const field = name as FieldName;
+      const nextError = validateField(field, value);
 
       setData(prevData => ({...prevData, [field]: value}));
-      // Clear a field's error as soon as the user starts correcting it.
-      setFieldErrors(prev => (prev[field] ? {...prev, [field]: undefined} : prev));
+      // Keep an invalid field's error in place while it is being edited, and
+      // remove only the issue the user has actually corrected.
+      const updateExistingError = (errors: FieldErrors): FieldErrors => {
+        if (!errors[field] || errors[field] === nextError) {
+          return errors;
+        }
+        const nextErrors = {...errors};
+        if (nextError) {
+          nextErrors[field] = nextError;
+        } else {
+          delete nextErrors[field];
+        }
+        return nextErrors;
+      };
+      setFieldErrors(updateExistingError);
+      setSubmissionErrors(updateExistingError);
       // Don't let a stale success/error banner linger while the user types again.
       setSubmitState(prev => (prev === 'success' || prev === 'error' ? 'idle' : prev));
     },
@@ -100,9 +133,18 @@ const ContactForm: FC = memo(() => {
       };
       setFieldErrors(nextErrors);
       if (nextErrors.name || nextErrors.email || nextErrors.message) {
+        setSubmissionErrors(nextErrors);
+        setValidationAttempt(attempt => attempt + 1);
+        setSubmitState('idle');
+
+        const firstInvalidField = FIELD_ORDER.find(field => nextErrors[field]);
+        if (firstInvalidField) {
+          fieldRefs.current[firstInvalidField]?.focus();
+        }
         return;
       }
 
+      setSubmissionErrors({});
       setSubmitState('sending');
 
       try {
@@ -110,6 +152,7 @@ const ContactForm: FC = memo(() => {
         // Preserve nothing on success — a clean form signals completion.
         setData(defaultData);
         setFieldErrors({});
+        setSubmissionErrors({});
         setSubmitState('success');
       } catch (error) {
         // axios rejects on non-2xx as well as transport failures. If a response
@@ -132,9 +175,47 @@ const ContactForm: FC = memo(() => {
   const messageLength = data.message.length;
   const remaining = MAX_MESSAGE_LENGTH - messageLength;
   const counterWarning = remaining <= COUNTER_WARN_THRESHOLD;
+  const counterAnnouncement =
+    remaining === 0
+      ? 'Message character limit reached.'
+      : counterWarning
+        ? 'Message is near the 2,000 character limit.'
+        : '';
+  const submittedErrorFields = FIELD_ORDER.filter(field => submissionErrors[field]);
+  const submittedErrorCount = submittedErrorFields.length;
+
+  const focusField = useCallback((event: React.MouseEvent<HTMLAnchorElement>, field: FieldName) => {
+    event.preventDefault();
+    fieldRefs.current[field]?.focus();
+  }, []);
 
   return (
     <form className="grid min-h-[320px] grid-cols-1 gap-y-4" method="POST" noValidate onSubmit={handleSendMessage}>
+      {submittedErrorCount > 0 && (
+        <div
+          aria-atomic="true"
+          aria-labelledby="contact-error-summary-title"
+          className="rounded-lg border border-red-400/60 bg-red-950/30 p-4 text-sm text-red-300"
+          key={validationAttempt}
+          role="alert">
+          <p className="font-semibold" id="contact-error-summary-title">
+            There {submittedErrorCount === 1 ? 'is' : 'are'} {submittedErrorCount}{' '}
+            {submittedErrorCount === 1 ? 'error' : 'errors'} to fix.
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {submittedErrorFields.map(field => (
+              <li key={field}>
+                <a
+                  className="rounded underline decoration-red-300/70 underline-offset-2 hover:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  href={`#${FIELD_IDS[field]}`}
+                  onClick={event => focusField(event, field)}>
+                  <span className="font-semibold">{FIELD_LABELS[field]}:</span> {submissionErrors[field]}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="flex flex-col gap-y-1">
         <label className="text-xs font-medium uppercase tracking-wide text-neutral-400" htmlFor="contact-name">
           Name
@@ -144,10 +225,14 @@ const ContactForm: FC = memo(() => {
           aria-invalid={fieldErrors.name ? true : undefined}
           className={inputClasses}
           id="contact-name"
+          maxLength={MAX_NAME_LENGTH}
           name="name"
           onBlur={onBlur}
           onChange={onChange}
           placeholder="Your name"
+          ref={element => {
+            fieldRefs.current.name = element ?? undefined;
+          }}
           required
           type="text"
           value={data.name}
@@ -168,10 +253,14 @@ const ContactForm: FC = memo(() => {
           autoComplete="email"
           className={inputClasses}
           id="contact-email"
+          maxLength={MAX_EMAIL_LENGTH}
           name="email"
           onBlur={onBlur}
           onChange={onChange}
           placeholder="you@example.com"
+          ref={element => {
+            fieldRefs.current.email = element ?? undefined;
+          }}
           required
           type="email"
           value={data.email}
@@ -196,6 +285,9 @@ const ContactForm: FC = memo(() => {
           onBlur={onBlur}
           onChange={onChange}
           placeholder="What can I help you with?"
+          ref={element => {
+            fieldRefs.current.message = element ?? undefined;
+          }}
           required
           rows={6}
           value={data.message}
@@ -209,12 +301,14 @@ const ContactForm: FC = memo(() => {
             <span aria-hidden="true" />
           )}
           <span
-            aria-live="polite"
-            className={classNames('text-xs', counterWarning ? 'text-orange-300' : 'text-neutral-500')}
+            className={classNames('text-xs', counterWarning ? 'text-orange-300' : 'text-neutral-400')}
             id="contact-message-counter">
             {counterWarning
               ? `${remaining} character${remaining === 1 ? '' : 's'} left`
               : `${messageLength}/${MAX_MESSAGE_LENGTH}`}
+          </span>
+          <span aria-atomic="true" aria-live="polite" className="sr-only" role="status">
+            {counterAnnouncement}
           </span>
         </div>
       </div>
