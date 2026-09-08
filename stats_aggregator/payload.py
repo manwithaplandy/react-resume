@@ -105,6 +105,54 @@ def _top_with_other(counts, label_is_valid):
     return result
 
 
+
+def cloudflare_projection(items, today):
+    """Bounded public measurements accepted together with source metadata."""
+    _, _, _, _, daily, countries = _collect(items, today)
+    return {'uniqueVisitors': min(sum(daily.values()), MAX_COUNT),
+            'countries': _top_with_other(countries, lambda label: bool(ISO_COUNTRY_RE.fullmatch(label)))}
+
+
+def read_cloudflare_checkpoint(item):
+    """None means pre-checkpoint legacy; malformed checkpoint fails closed."""
+    if item is None or not any(key in item for key in ['checkpointVersion', 'publicProjection']):
+        return None
+    if item.get('checkpointVersion') != {'N': '1'}:
+        raise ValueError('Invalid Cloudflare checkpoint version')
+    try:
+        projection = json.loads(item['publicProjection']['S'])
+        fields = ['status', 'scope', 'since', 'through', 'lastSuccessfulUpdate']
+        if any(item[field] != {'NULL': True} and
+               (set(item[field]) != {'S'} or not isinstance(item[field]['S'], str)) for field in fields):
+            raise ValueError('Invalid checkpoint source attribute')
+        source = {field: item[field].get('S') for field in fields}
+        count = projection['uniqueVisitors']
+        rows = projection['countries']
+        if (source['status'] not in ['current', 'stale', 'unavailable'] or source['scope'] != 'zone-requests'
+                or any(day is not None and not valid_day(day) for day in
+                       [source['since'], source['through'], source['lastSuccessfulUpdate']])
+                or (source['status'] == 'current' and not valid_day(source['lastSuccessfulUpdate']))
+                or type(count) is not int or not 0 <= count <= MAX_COUNT
+                or not isinstance(rows, list) or len(rows) > TOP_N + 1):
+            raise ValueError('Invalid Cloudflare checkpoint')
+        labels = set()
+        for row in rows:
+            label, value = row['label'], row['value']
+            if (not isinstance(label, str) or label in labels
+                    or not (ISO_COUNTRY_RE.fullmatch(label) or label == 'Other')
+                    or type(value) is not int or not 0 < value <= MAX_COUNT
+                    or (label != 'Other' and value < K_ANONYMITY_FLOOR)):
+                raise ValueError('Invalid Cloudflare checkpoint countries')
+            labels.add(label)
+        if source['status'] == 'unavailable' and (count != 0 or rows):
+            raise ValueError('Unavailable checkpoint contains measurements')
+        if len(labels - {'Other'}) > TOP_N:
+            raise ValueError('Too many named Cloudflare checkpoint countries')
+        return source, {'uniqueVisitors': count, 'countries': rows}
+    except (KeyError, TypeError, AttributeError, ValueError) as exc:
+        raise ValueError('Invalid Cloudflare checkpoint') from exc
+
+
 def render_payload(items: list[dict], today: date, source_status: dict[str, dict]) -> dict:
     totals, daily, pages, referrers, cf_daily, countries = _collect(items, today)
     observations = []
@@ -113,6 +161,14 @@ def render_payload(items: list[dict], today: date, source_status: dict[str, dict
         views = daily.get(day)
         observations.append({'date': day, 'views': views,
                              'status': 'missing' if views is None else 'provisional' if offset == 1 else 'observed'})
+    projection = cloudflare_projection(items, today)
+    checkpoint = next((item for item in items if item.get('id', {}).get('S') == 'source#cloudflare'), None)
+    try:
+        accepted = read_cloudflare_checkpoint(checkpoint)
+        if accepted is not None:
+            _, projection = accepted
+    except ValueError:
+        projection = {'uniqueVisitors': 0, 'countries': []}
     sources = {
         name: {field: source_status[name][field] for field in
                ['status', 'since', 'through', 'lastSuccessfulUpdate', 'scope']}
@@ -123,7 +179,7 @@ def render_payload(items: list[dict], today: date, source_status: dict[str, dict
         'sources': sources,
         'dailyObservations': observations,
         'totalViews': totals if totals is not None else 0,
-        'uniqueVisitors': min(sum(cf_daily.values()), MAX_COUNT),
+        'uniqueVisitors': projection['uniqueVisitors'],
         'lastUpdated': today.isoformat(),
         # Legacy requires a string. Only v2 source bounds represent absence.
         'since': min(daily) if daily else today.isoformat(),
@@ -132,5 +188,5 @@ def render_payload(items: list[dict], today: date, source_status: dict[str, dict
         'topPages': _top_with_other(pages, lambda label: bool(PAGE_STEM_RE.fullmatch(label))),
         'topReferrers': _top_with_other(referrers, lambda label: bool(DOMAIN_RE.fullmatch(label))
                                        and not IPV4_RE.fullmatch(label)),
-        'countries': _top_with_other(countries, lambda label: bool(ISO_COUNTRY_RE.fullmatch(label))),
+        'countries': projection['countries'],
     }

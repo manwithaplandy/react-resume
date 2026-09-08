@@ -161,6 +161,105 @@ class SourceFailureTests(unittest.TestCase):
         with patch.object(self.ddb, 'put_item', side_effect=fail_daily):
             self.assertEqual(self.run_handler(fails=True)['sources']['cloudflare']['status'], 'unavailable')
 
+    def test_partial_second_write_and_repeated_failure_keep_prior_dataset(self):
+        for prior in [False, True]:
+            with self.subTest(prior=prior):
+                self.ddb.items = {item['id']['S']: item for item in
+                    [count_item('total#views', 10), count_item('daily#2026-09-01', 10)]}
+                if prior:
+                    self.ddb.put_item(Item=cf_item('2026-09-02', 1, {'US': 7}))
+                    self.ddb.put_item(Item={'id': {'S': 'source#cloudflare'}, 'status': {'S': 'current'},
+                        'since': {'S': '2026-09-02'}, 'through': {'S': '2026-09-02'},
+                        'lastSuccessfulUpdate': {'S': '2026-09-03'}, 'scope': {'S': 'zone-requests'}})
+                self.http.side_effect = None
+                response = api_result([api_day('2026-09-06', 100, 100), api_day('2026-09-07', 200, 200)])
+                native_put = self.ddb.put_item
+                def fail_second(*, Item, **kwargs):
+                    if Item['id']['S'] == 'cf#daily#2026-09-07':
+                        raise OSError('synthetic second-write failure')
+                    return native_put(Item=Item, **kwargs)
+                # Repeat against surviving partial daily storage, not a reset fake.
+                for attempt in range(2):
+                    self.s3.published.clear()
+                    self.http.return_value = Response(response)
+                    with patch.object(self.ddb, 'put_item', side_effect=fail_second):
+                        result = self.run_handler(fails=True)
+                    self.assertIn('cf#daily#2026-09-06', self.ddb.items)
+                    self.assertEqual(result['uniqueVisitors'], 1 if prior else 0)
+                    self.assertEqual(result['countries'], [{'label': 'US', 'value': 7}] if prior else [])
+                    self.assertEqual(result['sources']['cloudflare'], {'status': 'stale' if prior else 'unavailable',
+                        'since': '2026-09-02' if prior else None, 'through': '2026-09-02' if prior else None,
+                        'lastSuccessfulUpdate': '2026-09-03' if prior else None, 'scope': 'zone-requests'})
+                self.s3.published.clear()
+                self.http.return_value = Response(response)
+                recovered = self.run_handler()
+                self.assertEqual(recovered['uniqueVisitors'], 301 if prior else 300)
+                self.assertEqual(recovered['sources']['cloudflare']['status'], 'current')
+                self.assertEqual(recovered['sources']['cloudflare']['through'], '2026-09-07')
+
+    def test_checkpoint_bootstrap_failure_prevents_daily_writes_even_if_committed(self):
+        for committed in [False, True]:
+            with self.subTest(committed=committed):
+                self.ddb.items.pop('source#cloudflare', None)
+                native_put = self.ddb.put_item
+                def fail_checkpoint(*, Item, **kwargs):
+                    if Item['id']['S'] == 'source#cloudflare':
+                        if committed:
+                            native_put(Item=Item, **kwargs)
+                        raise OSError('synthetic lost checkpoint response')
+                    return native_put(Item=Item, **kwargs)
+                with patch.object(self.ddb, 'put_item', side_effect=fail_checkpoint):
+                    with self.assertRaises(OSError):
+                        self.handler.lambda_handler({}, None)
+                self.http.assert_not_called()
+                self.assertFalse(any(key.startswith('cf#daily#') for key in self.ddb.items))
+                self.assertEqual(self.s3.published, [])
+
+    def test_checkpoint_acceptance_failure_keeps_projection_and_metadata_atomic(self):
+        for committed in [False, True]:
+            with self.subTest(committed=committed):
+                self.ddb.items = {item['id']['S']: item for item in
+                    [count_item('total#views', 10), count_item('daily#2026-09-01', 10)]}
+                self.s3.published.clear()
+                self.http.side_effect = TimeoutError()
+                self.run_handler(fails=True)  # Persist accepted unavailable baseline.
+                self.s3.published.clear()
+                self.http.side_effect = None
+                self.http.return_value = Response(api_result([api_day('2026-09-07', 100, 100)]))
+                native_put = self.ddb.put_item
+                def fail_acceptance(*, Item, **kwargs):
+                    if Item['id']['S'] == 'source#cloudflare':
+                        if committed:
+                            native_put(Item=Item, **kwargs)
+                        raise OSError('synthetic lost checkpoint response')
+                    return native_put(Item=Item, **kwargs)
+                with patch.object(self.ddb, 'put_item', side_effect=fail_acceptance):
+                    result = self.run_handler(fails=True)
+                self.assertEqual(result['uniqueVisitors'], 0)
+                self.assertEqual(result['sources']['cloudflare']['status'], 'unavailable')
+                self.s3.published.clear()
+                self.http.side_effect = TimeoutError()
+                result = self.run_handler(fails=True)
+                self.assertEqual(result['uniqueVisitors'], 100 if committed else 0)
+                self.assertEqual(result['sources']['cloudflare']['status'], 'stale' if committed else 'unavailable')
+                self.assertEqual(result['sources']['cloudflare']['through'], '2026-09-07' if committed else None)
+                self.assertEqual(result['sources']['cloudflare']['lastSuccessfulUpdate'], '2026-09-08' if committed else None)
+
+    def test_malformed_or_missing_projection_does_not_promote_partial_rows(self):
+        for projection in [None, '{bad JSON', '{"uniqueVisitors":100,"countries":[{"label":"US","value":1}]}']:
+            with self.subTest(projection=projection):
+                item = {'id': {'S': 'source#cloudflare'}, 'checkpointVersion': {'N': '1'}}
+                if projection is not None:
+                    item['publicProjection'] = {'S': projection}
+                self.ddb.put_item(Item=item)
+                self.ddb.put_item(Item=cf_item('2026-09-06', 100, {'US': 100}))
+                self.s3.published.clear()
+                self.http.side_effect = TimeoutError()
+                result = self.run_handler(fails=True)
+                self.assertEqual(result['uniqueVisitors'], 0)
+                self.assertEqual(result['countries'], [])
+                self.assertEqual(result['sources']['cloudflare']['status'], 'unavailable')
+
     def test_truncated_and_object_error_passes_do_not_advance_cloudfront_success(self):
         for outcome in [(0, True, False), (1, False, True)]:
             with self.subTest(outcome=outcome):

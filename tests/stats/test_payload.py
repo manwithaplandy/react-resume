@@ -1,7 +1,8 @@
 from datetime import date
+import json
 import unittest
 
-from stats_aggregator.payload import render_payload
+from stats_aggregator.payload import read_cloudflare_checkpoint, render_payload
 from fakes import cf_item, count_item
 
 TODAY = date(2026, 9, 8)
@@ -67,3 +68,25 @@ class PayloadTests(unittest.TestCase):
         result = render_payload([count_item('daily#2026-09-07', 'NaN'), cf_item('2026-09-07', 'bad')], TODAY, SOURCES)
         self.assertIsNone(result['dailyObservations'][-1]['views'])
         self.assertEqual(result['uniqueVisitors'], 0)
+
+    def test_checkpoint_validation_enforces_private_record_and_public_bounds(self):
+        source = {'status': 'stale', 'since': '2026-09-02', 'through': '2026-09-02',
+                  'lastSuccessfulUpdate': None, 'scope': 'zone-requests'}
+        item = {'id': {'S': 'source#cloudflare'}, 'checkpointVersion': {'N': '1'},
+                **{key: {'NULL': True} if value is None else {'S': value} for key, value in source.items()}}
+        good = {'uniqueVisitors': 1, 'countries': [{'label': 'US', 'value': 7}]}
+        item['publicProjection'] = {'S': json.dumps(good)}
+        self.assertEqual(read_cloudflare_checkpoint(item), (source, good))
+        for invalid in [ {'uniqueVisitors': True, 'countries': []},
+                         {'uniqueVisitors': 10**10, 'countries': []},
+                         {'uniqueVisitors': 1, 'countries': [{'label': 'US', 'value': 4}]},
+                         {'uniqueVisitors': 1, 'countries': [{'label': 'US', 'value': 7}] * 2},
+                         {'uniqueVisitors': 1, 'countries': [{'label': 'XX', 'value': 7}] * 7}]:
+            with self.subTest(invalid=invalid):
+                item['publicProjection'] = {'S': json.dumps(invalid)}
+                with self.assertRaises(ValueError):
+                    read_cloudflare_checkpoint(item)
+        item['publicProjection'] = {'S': json.dumps(good)}
+        item['since'] = {'unexpected': True}
+        with self.assertRaises(ValueError):
+            read_cloudflare_checkpoint(item)

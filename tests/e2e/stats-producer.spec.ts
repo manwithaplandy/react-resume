@@ -44,3 +44,39 @@ for (const scenario of ['stale', 'current', 'zero']) {
     await expect(page.getByRole('cell', {name: 'September 8, 2026', exact: true})).toHaveCount(0);
   });
 }
+
+for (const scenario of ['partial-prior', 'partial-empty']) {
+  test(`partial source storage keeps the accepted dataset: ${scenario}`, async ({page}, testInfo) => {
+    const payload: unknown = JSON.parse(
+      execFileSync(
+        process.env.STATS_TEST_PYTHON ?? 'python3',
+        [path.resolve('tests/stats/export_fixture.py'), scenario],
+        {encoding: 'utf8', env: {PATH: process.env.PATH, PYTHONNOUSERSITE: '1', AWS_EC2_METADATA_DISABLED: 'true'}},
+      ),
+    );
+    const prior = scenario === 'partial-prior';
+    const model = normalizeStatsPayload(payload, '2026-09-08');
+    expect(model?.documentRequests).toBe(10);
+    expect(model?.dailyUniqueVisits).toBe(prior ? 1 : null);
+    expect(model?.countries).toEqual(prior ? [{label: 'US', value: 7}] : []);
+    expect(model?.edgeSource).toEqual({
+      status: prior ? 'stale' : 'unavailable',
+      scope: 'zone-requests',
+      since: prior ? '2026-09-02' : null,
+      through: prior ? '2026-09-02' : null,
+      lastSuccessfulUpdate: prior ? '2026-09-03' : null,
+    });
+    await page.clock.setFixedTime(new Date('2026-09-08T12:00:00Z'));
+    await page.setViewportSize({width: 320, height: 900});
+    await page.route('**/stats.json', route => route.fulfill({json: payload}));
+    await page.goto('/stats');
+    const card = page.getByTestId('daily-unique-visits');
+    await expect(card).toContainText(prior ? 'Stale' : 'Unavailable');
+    if (prior) {
+      await expect(card.getByText('1', {exact: true})).toBeVisible();
+      await expect(card).toContainText('September 3, 2026');
+    }
+    await expect(page.getByTestId('document-requests')).toContainText('Current');
+    await page.screenshot({path: testInfo.outputPath(`${scenario}.png`), fullPage: true});
+  });
+}

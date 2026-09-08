@@ -32,10 +32,12 @@ import boto3
 # Package import in tests; flat import in the deployed two-file archive.
 if __package__:
     from .payload import (DOMAIN_RE, IPV4_RE, ISO_COUNTRY_RE, PAGE_STEM_RE,
-                          SOURCE_SCOPES, parse_count, render_payload, source_measurements, valid_day)
+                          SOURCE_SCOPES, cloudflare_projection, parse_count, read_cloudflare_checkpoint,
+                          render_payload, source_measurements, valid_day)
 else:
     from payload import (DOMAIN_RE, IPV4_RE, ISO_COUNTRY_RE, PAGE_STEM_RE,
-                         SOURCE_SCOPES, parse_count, render_payload, source_measurements, valid_day)
+                         SOURCE_SCOPES, cloudflare_projection, parse_count, read_cloudflare_checkpoint,
+                          render_payload, source_measurements, valid_day)
 
 # Clients at module scope so they are reused across warm invocations.
 s3 = boto3.client("s3")
@@ -394,11 +396,32 @@ def _source_state(items, name, succeeded, today):
     }
 
 
-def _persist_source(name, source):
+def _persist_source(name, source, projection=None):
     item = {**_ddb_id(f"source#{name}"), **{
         key: {"NULL": True} if value is None else {"S": value} for key, value in source.items()
     }}
+    if projection is not None:
+        item['checkpointVersion'] = {'N': '1'}
+        item['publicProjection'] = {'S': json.dumps(projection, separators=(',', ':'))}
     dynamodb.put_item(TableName=TABLE_NAME, Item=item)
+    return item
+
+
+def _cloudflare_baseline(items, today):
+    previous = next((item for item in items if item.get('id', {}).get('S') == 'source#cloudflare'), None)
+    try:
+        accepted = read_cloudflare_checkpoint(previous)
+    except ValueError:
+        # A damaged/new-format checkpoint must never promote partial daily rows.
+        print("ERROR: invalid Cloudflare checkpoint; publication unavailable")
+        source = {'status': 'unavailable', 'scope': 'zone-requests', 'since': None,
+                  'through': None, 'lastSuccessfulUpdate': None}
+        return source, {'uniqueVisitors': 0, 'countries': []}, False
+    if accepted is None:
+        return _source_state(items, 'cloudflare', False, today), cloudflare_projection(items, today), False
+    source, projection = accepted
+    source['status'] = 'unavailable' if source['status'] == 'unavailable' else 'stale'
+    return source, projection, True
 
 
 def lambda_handler(event, context):
@@ -412,14 +435,35 @@ def lambda_handler(event, context):
         print(f"ERROR: CloudFront source refresh failed: {type(exc).__name__}")
     print(f"INFO: processed {processed} new log object(s); truncated={truncated}")
 
-    cloudflare_ok = _fetch_cloudflare_daily(today)
     items = _scan_aggregates()
-    sources = {
-        "cloudfront": _source_state(items, "cloudfront", cloudfront_ok, today),
-        "cloudflare": _source_state(items, "cloudflare", cloudflare_ok, today),
-    }
-    for name, source in sources.items():
-        _persist_source(name, source)
+    prior_source, prior_projection, checkpoint_exists = _cloudflare_baseline(items, today)
+    # Establish the accepted legacy baseline before any daily write. Failure
+    # here aborts without touching daily history; later invocations can retry.
+    if not checkpoint_exists:
+        _persist_source('cloudflare', prior_source, prior_projection)
+    cloudflare_ok = _fetch_cloudflare_daily(today)
+    edge_source, projection = prior_source, prior_projection
+    if cloudflare_ok:
+        try:
+            refreshed = _scan_aggregates()
+            edge_source = _source_state(refreshed, 'cloudflare', True, today)
+            projection = cloudflare_projection(refreshed, today)
+            # One item atomically accepts metadata and its bounded projection.
+            _persist_source('cloudflare', edge_source, projection)
+        except Exception as exc:
+            print(f"ERROR: Cloudflare checkpoint refresh failed: {type(exc).__name__}")
+            cloudflare_ok = False
+            edge_source, projection = prior_source, prior_projection
+    sources = {'cloudfront': _source_state(items, 'cloudfront', cloudfront_ok, today),
+               'cloudflare': edge_source}
+    _persist_source('cloudfront', sources['cloudfront'])
+    # Pure rendering receives one internally consistent accepted source record.
+    # Never rescan partial CF rows after a failed attempt or overwrite an
+    # uncertain checkpoint write: its atomic commit may already have happened.
+    checkpoint = {**_ddb_id('source#cloudflare'), **{
+        key: {'NULL': True} if value is None else {'S': value} for key, value in edge_source.items()},
+        'checkpointVersion': {'N': '1'}, 'publicProjection': {'S': json.dumps(projection)}}
+    items = [item for item in items if item.get('id', {}).get('S') != 'source#cloudflare'] + [checkpoint]
     payload = render_payload(items, today, sources)
     s3.put_object(
         Bucket=WEBSITE_BUCKET, Key=STATS_KEY,
