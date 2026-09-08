@@ -69,7 +69,7 @@ test('invalid labels and counts cannot reach normalized public lists', () => {
     ],
     topPages: [
       {label: 'javascript:alert(1)', value: 8},
-      {label: '/safe', value: 2},
+      {label: '/safe', value: 5},
     ],
     topReferrers: [
       {label: '192.0.2.1', value: 8},
@@ -80,12 +80,50 @@ test('invalid labels and counts cannot reach normalized public lists', () => {
   };
   const model = normalizeStatsPayload(unsafe, '2026-09-08');
   expect(model?.countries).toEqual([{label: 'CA', value: 5}]);
-  expect(model?.topPages).toEqual([{label: '/safe', value: 2}]);
+  expect(model?.topPages).toEqual([{label: '/safe', value: 5}]);
   expect(model?.topReferrers).toEqual([{label: 'valid.example', value: 6}]);
 });
 
+test('named buckets below five join a bounded preexisting Other bucket', () => {
+  const model = normalizeStatsPayload(
+    {
+      ...legacy,
+      countries: [
+        {label: 'US', value: 4},
+        {label: 'CA', value: 5},
+        {label: 'Other', value: 1},
+      ],
+      topPages: [
+        {label: '/private', value: 4},
+        {label: '/public', value: 5},
+        {label: 'Other', value: 3},
+        {label: '/another-private', value: 2},
+      ],
+      topReferrers: [
+        {label: 'private.example', value: 4},
+        {label: 'public.example', value: 5},
+        {label: 'Other', value: 1_000_000_000},
+      ],
+    },
+    '2026-09-08',
+  );
+
+  expect(model?.countries).toEqual([
+    {label: 'CA', value: 5},
+    {label: 'Other', value: 5},
+  ]);
+  expect(model?.topPages).toEqual([
+    {label: '/public', value: 5},
+    {label: 'Other', value: 9},
+  ]);
+  expect(model?.topReferrers).toEqual([
+    {label: 'public.example', value: 5},
+    {label: 'Other', value: 1_000_000_000},
+  ]);
+});
+
 test('public lists and observations remain bounded', () => {
-  const tooManyItems = Array.from({length: 8}, (_, index) => ({label: `/page-${index}`, value: index + 1}));
+  const tooManyItems = Array.from({length: 8}, (_, index) => ({label: `/page-${index}`, value: index + 5}));
   const model = normalizeStatsPayload({...legacy, topPages: tooManyItems}, '2026-09-08');
   expect(model?.topPages).toHaveLength(6);
 

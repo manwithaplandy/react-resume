@@ -71,6 +71,7 @@ test('v2 payload shows measured zero, separate periods, gaps and provisional dat
 test('valid document zero remains visible while an unavailable edge source does not become zero', async ({page}) => {
   const missingEdge = {
     ...structuredClone(current),
+    countries: [],
     sources: {
       ...current.sources,
       cloudflare: {
@@ -82,6 +83,8 @@ test('valid document zero remains visible while an unavailable edge source does 
       },
     },
     dailyObservations: current.dailyObservations.map(point => ({...point, status: 'missing', views: null})),
+    topPages: [],
+    topReferrers: [],
     totalViews: 0,
     uniqueVisitors: 0,
   };
@@ -195,6 +198,37 @@ test('SPA navigation cancels a pending stats request on unmount', async ({page})
   } finally {
     release();
   }
+});
+
+test('sparse calendar dates use real spacing and break paths across absent days', async ({page}) => {
+  const sparse = {
+    ...structuredClone(current),
+    dailyObservations: [
+      {date: '2026-09-01', status: 'observed', views: 2},
+      {date: '2026-09-02', status: 'missing', views: null},
+      {date: '2026-09-04', status: 'observed', views: 5},
+      {date: '2026-09-07', status: 'provisional', views: 0},
+    ],
+  };
+  await fixBrowserCalendar(page);
+  await fulfillStats(page, sparse);
+  await page.goto('/stats');
+
+  const chart = page.getByRole('img', {name: '7 requests across 3 measured days; 4 missing and 1 provisional'});
+  await expect(chart).toBeVisible();
+  const xPositions = await chart.locator('circle').evaluateAll(circles =>
+    circles.map(circle => Number(circle.getAttribute('cx'))),
+  );
+  expect(xPositions).toHaveLength(3);
+  expect(xPositions[0]).toBeCloseTo(4, 1);
+  expect(xPositions[1]).toBeCloseTo(150, 1);
+  expect(xPositions[2]).toBeCloseTo(296, 1);
+  for (const path of await chart.locator('[data-chart-segment]').all()) {
+    await expect(path).not.toHaveAttribute('d', /L/);
+  }
+
+  await page.getByText('Daily values and status', {exact: true}).click();
+  await expect(page.getByRole('row')).toHaveCount(5);
 });
 
 test('stats presentation reflows at 320 pixels', async ({page}) => {

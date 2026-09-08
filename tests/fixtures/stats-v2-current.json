@@ -10,12 +10,12 @@
     {"date": "2026-09-08", "views": 0}
   ],
   "topPages": [
-    {"label": "/", "value": 8},
-    {"label": "/graph", "value": 2}
+    {"label": "/", "value": 5},
+    {"label": "Other", "value": 5}
   ],
   "topReferrers": [
-    {"label": "example.com", "value": 6},
-    {"label": "docs.example.com", "value": 4}
+    {"label": "example.com", "value": 5},
+    {"label": "Other", "value": 5}
   ],
   "countries": [{"label": "US", "value": 12}],
   "sources": {
@@ -58,11 +58,11 @@
     {"date": "2026-08-29", "views": null, "status": "missing"},
     {"date": "2026-08-30", "views": null, "status": "missing"},
     {"date": "2026-08-31", "views": null, "status": "missing"},
-    {"date": "2026-09-01", "views": 2, "status": "observed"},
-    {"date": "2026-09-02", "views": 3, "status": "observed"},
+    {"date": "2026-09-01", "views": 0, "status": "observed"},
+    {"date": "2026-09-02", "views": 0, "status": "observed"},
     {"date": "2026-09-03", "views": null, "status": "missing"},
     {"date": "2026-09-04", "views": 0, "status": "observed"},
-    {"date": "2026-09-05", "views": 4, "status": "observed"},
+    {"date": "2026-09-05", "views": 0, "status": "observed"},
     {"date": "2026-09-06", "views": 10, "status": "observed"},
     {"date": "2026-09-07", "views": 0, "status": "provisional"}
   ]

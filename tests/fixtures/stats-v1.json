@@ -9,12 +9,12 @@
     {"date": "2026-09-08", "views": 0}
   ],
   "topPages": [
-    {"label": "/", "value": 8},
-    {"label": "/graph", "value": 2}
+    {"label": "/", "value": 5},
+    {"label": "Other", "value": 5}
   ],
   "topReferrers": [
-    {"label": "example.com", "value": 6},
-    {"label": "docs.example.com", "value": 4}
+    {"label": "example.com", "value": 5},
+    {"label": "Other", "value": 5}
   ],
   "countries": [{"label": "US", "value": 12}]
 }

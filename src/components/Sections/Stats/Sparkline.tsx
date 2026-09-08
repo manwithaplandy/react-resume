@@ -5,6 +5,9 @@ import {StatsObservation} from '../../../data/dataDef';
 const WIDTH = 300;
 const HEIGHT = 72;
 const PAD = 4;
+const MILLIS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const dateToDay = (date: string): number => Date.parse(`${date}T00:00:00.000Z`) / MILLIS_PER_DAY;
 
 const formatDate = (isoDate: string): string => {
   const [year, month, day] = isoDate.split('-').map(Number);
@@ -40,10 +43,14 @@ const Sparkline: FC<{observations: StatsObservation[]}> = memo(({observations}) 
       (point): point is StatsObservation & {views: number} => point.views !== null,
     );
     const max = Math.max(1, ...measured.map(point => point.views));
-    const stepX = observations.length > 1 ? (WIDTH - PAD * 2) / (observations.length - 1) : 0;
-    const pointCoordinates = observations.map((point, index) => ({
+    const firstDay = observations[0] ? dateToDay(observations[0].date) : 0;
+    const lastObservation = observations.at(-1);
+    const lastDay = lastObservation ? dateToDay(lastObservation.date) : firstDay;
+    const daySpan = Math.max(1, lastDay - firstDay);
+    const pointCoordinates = observations.map(point => ({
       ...point,
-      x: PAD + index * stepX,
+      day: dateToDay(point.date),
+      x: PAD + ((dateToDay(point.date) - firstDay) / daySpan) * (WIDTH - PAD * 2),
       y: point.views === null ? null : HEIGHT - PAD - (point.views / max) * (HEIGHT - PAD * 2),
     }));
 
@@ -55,6 +62,10 @@ const Sparkline: FC<{observations: StatsObservation[]}> = memo(({observations}) 
         activeObserved = null;
         previousMeasured = null;
         return;
+      }
+      if (previousMeasured !== null && point.day - previousMeasured.day !== 1) {
+        activeObserved = null;
+        previousMeasured = null;
       }
       const coordinate = `${point.x.toFixed(1)},${point.y.toFixed(1)}`;
       if (point.status === 'observed') {
@@ -84,7 +95,7 @@ const Sparkline: FC<{observations: StatsObservation[]}> = memo(({observations}) 
     const firstDate = observations.at(0)?.date;
     const lastDate = observations.at(-1)?.date;
     const visibleRange = firstDate && lastDate ? `${formatDate(firstDate)} – ${formatDate(lastDate)}` : null;
-    const missingCount = observations.length - measured.length;
+    const missingCount = observations.length === 0 ? 0 : lastDay - firstDay + 1 - measured.length;
     const provisionalCount = observations.filter(point => point.status === 'provisional').length;
 
     return {

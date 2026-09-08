@@ -10,6 +10,7 @@ const MAX_LIST_ITEMS = 6;
 const MAX_OBSERVATIONS = 30;
 const MAX_LEGACY_POINTS = 31;
 const MAX_COUNT = 1_000_000_000;
+const MIN_PUBLIC_BUCKET = 5;
 const MILLIS_PER_DAY = 24 * 60 * 60 * 1000;
 
 type UnknownRecord = Record<string, unknown>;
@@ -38,18 +39,32 @@ const sanitizeList = (value: unknown, labelOk: (label: string) => boolean): Stat
     return [];
   }
 
-  return value
-    .flatMap(item => {
-      if (!isRecord(item) || typeof item.label !== 'string') {
-        return [];
-      }
-      const count = parseCount(item.value);
-      if (count === null || (item.label !== 'Other' && !labelOk(item.label))) {
-        return [];
-      }
-      return [{label: item.label, value: count}];
-    })
-    .slice(0, MAX_LIST_ITEMS);
+  const named: StatsDatum[] = [];
+  let other = 0;
+  value.forEach(item => {
+    if (!isRecord(item) || typeof item.label !== 'string') {
+      return;
+    }
+    const count = parseCount(item.value);
+    if (count === null) {
+      return;
+    }
+    if (item.label === 'Other') {
+      other = Math.min(MAX_COUNT, other + count);
+      return;
+    }
+    if (!labelOk(item.label)) {
+      return;
+    }
+    if (count < MIN_PUBLIC_BUCKET) {
+      other = Math.min(MAX_COUNT, other + count);
+      return;
+    }
+    named.push({label: item.label, value: count});
+  });
+
+  const namedLimit = other > 0 ? MAX_LIST_ITEMS - 1 : MAX_LIST_ITEMS;
+  return [...named.slice(0, namedLimit), ...(other > 0 ? [{label: 'Other', value: other}] : [])];
 };
 
 const unavailableSource = (scope: SourceScope): StatsSource => ({
