@@ -1,4 +1,5 @@
 import dynamic from 'next/dynamic';
+import Router, {useRouter} from 'next/router';
 import {FC, memo, SyntheticEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState} from 'react';
 import {match} from 'ts-pattern';
 
@@ -55,6 +56,7 @@ const parseNodeHash = (hash: string): string | null => {
  * URL-hash deep links, reduced-motion handling and the onboarding chrome.
  */
 const GraphExplorer: FC = memo(() => {
+  const {isReady: routerReady} = useRouter();
   const [state, dispatch] = useReducer(graphNavReducer, initialFocusId, initialGraphNavState);
   const [capability, setCapability] = useState<'detecting' | 'supported' | 'unsupported' | 'performance'>('detecting');
   const [requestedView, setRequestedView] = useState<'3d' | 'list'>('3d');
@@ -141,6 +143,11 @@ const GraphExplorer: FC = memo(() => {
   // --- URL hash sync: deep links + browser Back navigates the focus trail ----
   const hashSyncedOnce = useRef(false);
   useEffect(() => {
+    // Static-export query hydration owns its own initial replacement. Wait
+    // until it finishes before recording the graph's default selection.
+    if (!routerReady) {
+      return;
+    }
     if (locationFocus.current === state.focusedId) {
       locationFocus.current = undefined;
       return;
@@ -163,13 +170,14 @@ const GraphExplorer: FC = memo(() => {
     const base = window.location.pathname + window.location.search;
     const url = desired ? `${base}${desired}` : base;
     // The pre-focused initial node replaces (not pushes) so the first Back
-    // press leaves the page instead of just clearing the hash.
+    // press leaves the page instead of just clearing the hash. Let Next own
+    // each history entry so Back also restores the page after leaving graph.
     if (firstSync) {
-      window.history.replaceState(null, '', url);
+      void Router.replace(url, undefined, {shallow: true, scroll: false});
     } else {
-      window.history.pushState(null, '', url);
+      void Router.push(url, undefined, {shallow: true, scroll: false});
     }
-  }, [state.focusedId]);
+  }, [routerReady, state.focusedId]);
   useEffect(() => {
     const handleLocationChange = () => {
       const view = new URLSearchParams(window.location.search).get('view') === 'list' ? 'list' : '3d';
@@ -256,7 +264,7 @@ const GraphExplorer: FC = memo(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get('view') !== view) {
       url.searchParams.set('view', view);
-      window.history.pushState(null, '', `${url.pathname}${url.search}${url.hash}`);
+      void Router.push(`${url.pathname}${url.search}${url.hash}`, undefined, {shallow: true, scroll: false});
     }
   }, []);
   const handleTextView = useCallback(() => handleChooseView('list'), [handleChooseView]);

@@ -300,3 +300,73 @@ for (const control of ['entry', 'mode']) {
     await expect(persistentControl).toBeFocused();
   });
 }
+
+for (const entry of ['initial selection', 'changed selection', 'changed view'] as const) {
+  test(`cross-page history restores graph after ${entry}`, async ({page}, testInfo) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const initial = '/graph?view=list#node=job%3Aga-lead-ai-ml-engineer';
+    const python = '/graph?view=list#node=skill%3Apython';
+    const threePython = '/graph?view=3d#node=skill%3Apython';
+    await page.goto(entry === 'changed view' ? threePython : '/graph?view=list');
+    if (entry === 'changed view') {
+      await expectThreeDimensionalView(page);
+      await textView(page).click();
+    } else {
+      await expect(list(page)).toBeVisible();
+      if (entry === 'changed selection') {
+        await list(page).getByRole('button', {name: 'Python', exact: true}).click();
+      }
+    }
+    const graphUrl = entry === 'initial selection' ? initial : python;
+    const selectedName = entry === 'initial selection' ? 'Lead AI/ML Engineer' : 'Python';
+    const expectRestoredGraph = async () => {
+      await expect(page).toHaveURL(graphUrl);
+      await expect(list(page)).toBeVisible();
+      await expect(textView(page)).toHaveAttribute('aria-pressed', 'true');
+      await expect(list(page).getByRole('button', {name: selectedName, exact: true})).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+      await expect(page.locator('#contact')).toHaveCount(0);
+    };
+    await expectRestoredGraph();
+    // A marker proves Classic resume and history exercise the same document's
+    // actual page router, rather than passing through full-page reloads.
+    await page.evaluate(() => (document.documentElement.dataset.historyJourney = 'graph-resume'));
+    await page.getByRole('link', {name: 'Classic resume', exact: true}).click();
+    await expect(page).toHaveURL('/');
+    await expect(page.locator('#contact')).toBeVisible();
+    await expect(list(page)).toHaveCount(0);
+    await page.goBack();
+    await expectRestoredGraph();
+    await page.screenshot({path: testInfo.outputPath('graph-restored-after-resume.png')});
+
+    if (entry !== 'initial selection') {
+      await page.goBack();
+      if (entry === 'changed view') {
+        await expect(page).toHaveURL(threePython);
+        await expectThreeDimensionalView(page);
+        await expect(threeView(page)).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByRole('heading', {name: 'Python', exact: true})).toBeVisible();
+        await expect(list(page)).toHaveCount(0);
+      } else {
+        await expect(page).toHaveURL(initial);
+        await expect(list(page).getByRole('button', {name: 'Lead AI/ML Engineer', exact: true})).toHaveAttribute(
+          'aria-expanded',
+          'true',
+        );
+      }
+      await page.goForward();
+      await expectRestoredGraph();
+    }
+    await page.goForward();
+    await expect(page).toHaveURL('/');
+    await expect(page.locator('#contact')).toBeVisible();
+    await expect(list(page)).toHaveCount(0);
+    await page.goBack();
+    await expectRestoredGraph();
+    await expect(page.locator('html')).toHaveAttribute('data-history-journey', 'graph-resume');
+    expect(errors).toEqual([]);
+  });
+}

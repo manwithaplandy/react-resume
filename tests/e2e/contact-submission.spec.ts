@@ -237,13 +237,18 @@ test('navigating away aborts pending local work without stale feedback', async (
   try {
     await page.locator('#headerNav').getByRole('link', {name: 'career graph', exact: true}).click();
     await expect(page).toHaveURL(/\/graph(?:#|$)/);
+    await expect(page.locator('#contact')).toHaveCount(0);
     expect(await page.evaluate(() => (window as ObservedWindow).c2DocumentMarker)).toBe('same-document-navigation');
-    expect(
-      await page.evaluate(
-        index => (window as ObservedWindow).c2Controllers?.[index]?.signal.aborted,
-        submittedController,
-      ),
-    ).toBe(true);
+    // The URL updates before React unmount and passive-effect cleanup finish.
+    // Observe the submitted native signal after that lifecycle boundary.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          index => (window as ObservedWindow).c2Controllers?.[index]?.signal.aborted,
+          submittedController,
+        ),
+      )
+      .toBe(true);
     release();
     await expect.poll(() => delayedRouteSettled).toBe(true);
     await expect(page.getByText(/Message sent — thank you|Delivery could not be confirmed/)).toHaveCount(0);
