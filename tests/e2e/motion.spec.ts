@@ -80,7 +80,7 @@ test('particles clear on live reduction and resume with one draw per frame', asy
   const detachedCanvas = await canvas.elementHandle();
   await page.getByRole('link', {name: 'analytics', exact: true}).click();
   await expect(page).toHaveURL(/\/stats$/);
-  expect(await detachedCanvas!.evaluate(node => node.isConnected)).toBe(false);
+  await expect.poll(() => detachedCanvas!.evaluate(node => node.isConnected)).toBe(false);
   const afterUnmount = await detachedCanvas!.evaluate(node => (node as HTMLCanvasElement).toDataURL());
   await page.emulateMedia({reducedMotion: 'reduce'});
   await page.emulateMedia({reducedMotion: 'no-preference'});

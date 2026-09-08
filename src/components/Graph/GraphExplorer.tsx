@@ -8,6 +8,7 @@ import useReducedMotion from '../../hooks/useReducedMotion';
 import FocusPanel from './FocusPanel';
 import GraphListFallback from './GraphListFallback';
 import {graphNavReducer, initialGraphNavState} from './graphReducer';
+import GraphSearch from './GraphSearch';
 import GraphSkeleton from './GraphSkeleton';
 
 // The 3D canvas (three + react-force-graph-3d) must never be evaluated during
@@ -69,6 +70,7 @@ const GraphExplorer: FC = memo(() => {
   const [hintDismissed, setHintDismissed] = useState(true);
   const [legendOpen, setLegendOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
+  const [overviewRequest, setOverviewRequest] = useState(0);
   const reducedMotion = systemReducedMotion || manualReducedMotion;
   // The role="application" container; the keyboard model only acts while focus
   // lives inside it, so arrows/Backspace stay free everywhere else.
@@ -284,6 +286,11 @@ const GraphExplorer: FC = memo(() => {
       .filter((node): node is NonNullable<typeof node> => Boolean(node));
   }, [state.history, state.focusedId]);
 
+  const handleOverview = useCallback(() => {
+    dispatch({type: 'reset'});
+    setOverviewRequest(request => request + 1);
+  }, []);
+
   const handleCrumbClick = useCallback((id: string) => dispatch({id, type: 'focusNode'}), []);
 
   return (
@@ -291,6 +298,8 @@ const GraphExplorer: FC = memo(() => {
       <p aria-live="polite" className="sr-only" role="status">
         {announcement}
       </p>
+
+      <GraphSearch onSelect={handleCrumbClick} />
 
       <div
         aria-label="Career graph controls"
@@ -311,6 +320,10 @@ const GraphExplorer: FC = memo(() => {
           ref={threeViewRef}
           type="button">
           3D view
+        </button>
+
+        <button className={PILL_BUTTON_CLASS} onClick={handleOverview} type="button">
+          Show overview
         </button>
 
         <details className="min-w-0 max-w-full sm:max-w-xl" onToggle={handleHelpToggle} open={!hintDismissed}>
@@ -386,6 +399,7 @@ const GraphExplorer: FC = memo(() => {
                   <ResumeGraphCanvas
                     dispatch={dispatch}
                     onPerformanceFallback={handlePerformanceFallback}
+                    overviewRequest={overviewRequest}
                     reducedMotion={reducedMotion}
                     state={state}
                   />
