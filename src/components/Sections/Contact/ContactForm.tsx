@@ -230,11 +230,48 @@ const ContactForm: FC = memo(() => {
 
   return (
     <form
-      aria-busy={isSending}
       className="grid min-h-[320px] grid-cols-1 gap-y-4"
       method="POST"
       noValidate
       onSubmit={handleSendMessage}>
+      <div aria-live="polite" className="min-h-[1.25rem]">
+        {submitState === 'sending' && (
+          <p className="text-sm font-medium text-neutral-300" role="status">
+            Sending your message. Fields are temporarily read-only.
+          </p>
+        )}
+        {submitState === 'success' && (
+          <p className="text-sm font-medium text-green-400">
+            Message sent — thank you! I&apos;ll get back to you within a few days, or you can email me directly at{' '}
+            <a className="underline hover:text-green-300" href={`mailto:${CONTACT_EMAIL}`}>
+              {CONTACT_EMAIL}
+            </a>
+            .
+          </p>
+        )}
+        {submitState === 'error' && (
+          <p className="text-sm font-medium text-red-400">
+            {errorKind === 'network' ? (
+              <>
+                Delivery could not be confirmed. Your message may have been sent. The text is preserved below; you can
+                retry or{' '}
+                <a className="underline hover:text-red-300" href={`mailto:${CONTACT_EMAIL}`}>
+                  email me directly
+                </a>
+                .
+              </>
+            ) : (
+              <>
+                Something went wrong on my end. Please email me directly at{' '}
+                <a className="underline hover:text-red-300" href={`mailto:${CONTACT_EMAIL}`}>
+                  {CONTACT_EMAIL}
+                </a>
+                .
+              </>
+            )}
+          </p>
+        )}
+      </div>
       {submittedErrorCount > 0 && (
         <div
           aria-atomic="true"
@@ -365,44 +402,6 @@ const ContactForm: FC = memo(() => {
         type="submit">
         {isSending ? 'Sending…' : 'Send Message'}
       </button>
-      <div aria-live="polite" className="min-h-[1.25rem]">
-        {submitState === 'sending' && (
-          <p className="text-sm font-medium text-neutral-300" role="status">
-            Sending your message. Fields are temporarily read-only.
-          </p>
-        )}
-        {submitState === 'success' && (
-          <p className="text-sm font-medium text-green-400">
-            Message sent — thank you! I&apos;ll get back to you within a few days, or you can email me directly at{' '}
-            <a className="underline hover:text-green-300" href={`mailto:${CONTACT_EMAIL}`}>
-              {CONTACT_EMAIL}
-            </a>
-            .
-          </p>
-        )}
-        {submitState === 'error' && (
-          <p className="text-sm font-medium text-red-400">
-            {errorKind === 'network' ? (
-              <>
-                Delivery could not be confirmed. Your message may have been sent. The text is preserved below; you can
-                retry or{' '}
-                <a className="underline hover:text-red-300" href={`mailto:${CONTACT_EMAIL}`}>
-                  email me directly
-                </a>
-                .
-              </>
-            ) : (
-              <>
-                Something went wrong on my end. Please email me directly at{' '}
-                <a className="underline hover:text-red-300" href={`mailto:${CONTACT_EMAIL}`}>
-                  {CONTACT_EMAIL}
-                </a>
-                .
-              </>
-            )}
-          </p>
-        )}
-      </div>
     </form>
   );
 });

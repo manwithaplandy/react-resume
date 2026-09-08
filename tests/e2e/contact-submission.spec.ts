@@ -17,6 +17,11 @@ interface Draft {
   message: string;
 }
 
+type ObservedWindow = Window & {
+  c2Controllers?: AbortController[];
+  c2DocumentMarker?: string;
+};
+
 const RAW_DRAFT: Draft = {
   name: '  Test Visitor  ',
   // Browsers normalize leading/trailing whitespace in type=email values.
@@ -84,7 +89,9 @@ test('pending submission is read-only and sends one trimmed snapshot', async ({p
     }
     await expectExactDraft(page);
     await expect(page.getByRole('button', {name: 'Sending…', exact: true})).toBeDisabled();
-    await expect(page.getByText('Sending your message. Fields are temporarily read-only.', {exact: true})).toBeVisible();
+    const pendingStatus = page.getByText('Sending your message. Fields are temporarily read-only.', {exact: true});
+    await expect(pendingStatus).toBeVisible();
+    expect(await pendingStatus.evaluate(element => element.closest('[aria-busy="true"]')?.tagName ?? null)).toBeNull();
     await expect.poll(() => requests).toBe(1);
   } finally {
     release();
@@ -187,25 +194,63 @@ test('navigating away aborts pending local work without stale feedback', async (
     release = resolve;
   });
   let requests = 0;
+  let delayedRouteSettled = false;
+
+  await page.addInitScript(() => {
+    const observedWindow = window as ObservedWindow;
+    const NativeAbortController = window.AbortController;
+    observedWindow.c2Controllers = [];
+    window.AbortController = class extends NativeAbortController {
+      constructor() {
+        super();
+        observedWindow.c2Controllers?.push(this);
+      }
+    };
+  });
 
   await page.route(CONTACT_ENDPOINT, async route => {
     if (await handlePreflight(route)) return;
     requests += 1;
     expectTrimmedPayload(route);
     await gate;
-    await route.fulfill({status: 200, headers: CORS_HEADERS, contentType: 'text/plain', body: 'accepted'}).catch(
-      () => undefined,
-    );
+    try {
+      await route.fulfill({status: 200, headers: CORS_HEADERS, contentType: 'text/plain', body: 'accepted'});
+    } catch {
+      // The client abort can make the intercepted route impossible to fulfill.
+    } finally {
+      delayedRouteSettled = true;
+    }
   });
 
   await fillDraft(page);
+  await page.evaluate(() => {
+    (window as ObservedWindow).c2DocumentMarker = 'same-document-navigation';
+  });
+  const controllersBeforeSubmit = await page.evaluate(() => (window as ObservedWindow).c2Controllers?.length ?? 0);
   await page.getByRole('button', {name: 'Send Message', exact: true}).click();
   await expect.poll(() => requests).toBe(1);
+  await expect.poll(() => page.evaluate(() => (window as ObservedWindow).c2Controllers?.length ?? 0)).toBe(
+    controllersBeforeSubmit + 1,
+  );
+  const submittedController = controllersBeforeSubmit;
 
   try {
-    await page.goto('/graph');
+    await page.locator('#headerNav').getByRole('link', {name: 'career graph', exact: true}).click();
     await expect(page).toHaveURL(/\/graph(?:#|$)/);
+    expect(await page.evaluate(() => (window as ObservedWindow).c2DocumentMarker)).toBe('same-document-navigation');
+    expect(
+      await page.evaluate(
+        index => (window as ObservedWindow).c2Controllers?.[index]?.signal.aborted,
+        submittedController,
+      ),
+    ).toBe(true);
+    release();
+    await expect.poll(() => delayedRouteSettled).toBe(true);
     await expect(page.getByText(/Message sent — thank you|Delivery could not be confirmed/)).toHaveCount(0);
+    await page.getByRole('link', {name: 'Classic resume', exact: true}).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByText(/Message sent — thank you|Delivery could not be confirmed/)).toHaveCount(0);
+    await expect(page.locator('#contact-name')).toHaveValue('');
   } finally {
     release();
   }
